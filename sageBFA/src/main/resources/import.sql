@@ -19,74 +19,74 @@ INSERT INTO TestNumerico (idPrueba, tiempoOperacionesMin, tiempoProblemasMin) VA
 -- === SECCIÓN: OPERACIONES (Preguntas 1 a 10, orden 1 a 10) ===
 
 -- Pregunta 1 (Q57)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (1, 1, 'OPERACIONES', '\square - 14{,}47 - 23{,}36 = 4', 1);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (1, 1, 'OPERACIONES', '\\\\square - 14{,}47 - 23{,}36 = 4', 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (1, 'A', '42{,}83', false, 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (2, 'B', '41{,}83', true, 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (3, 'C', '41{,}73', false, 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (4, 'D', '42{,}73', false, 1);
 
 -- Pregunta 2 (Q58)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (2, 2, 'OPERACIONES', '7{,}28 - 2{,}53 - \square = 1{,}49', 1);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (2, 2, 'OPERACIONES', '7{,}28 - 2{,}53 - \\\\square = 1{,}49', 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (5, 'A', '5{,}37', false, 2);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (6, 'B', '3{,}36', false, 2);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (7, 'C', '3{,}27', false, 2);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (8, 'D', '3{,}26', true, 2);
 
 -- Pregunta 3 (Q59)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (3, 3, 'OPERACIONES', '3{,}39 - 3{,}25 + \square - 2{,}33 = 2', 1);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (3, 3, 'OPERACIONES', '3{,}39 - 3{,}25 + \\\\square - 2{,}33 = 2', 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (9, 'A', '3{,}29', false, 3);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (10, 'B', '2{,}38', false, 3);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (11, 'C', '4{,}19', true, 3);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (12, 'D', '5{,}58', false, 3);
 
 -- Pregunta 4 (Q60)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (4, 4, 'OPERACIONES', '\square - 12{,}68 + 18{,}89 - 1{,}89 = 28{,}89', 1);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (4, 4, 'OPERACIONES', '\\\\square - 12{,}68 + 18{,}89 - 1{,}89 = 28{,}89', 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (13, 'A', '24{,}57', true, 4);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (14, 'B', '43{,}46', false, 4);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (15, 'C', '14{,}57', false, 4);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (16, 'D', '34{,}46', false, 4);
 
 -- Pregunta 5 (Q61)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (5, 5, 'OPERACIONES', '\frac{5{,}73 + 1{,}27}{5{,}63 + \square} = 1', 1);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (5, 5, 'OPERACIONES', '\\\\frac{5{,}73 + 1{,}27}{5{,}63 + \\\\square} = 1', 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (17, 'A', '1{,}27', false, 5);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (18, 'B', '1{,}47', false, 5);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (19, 'C', '1{,}17', false, 5);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (20, 'D', '1{,}37', true, 5);
 
 -- Pregunta 6 (Q62)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (6, 6, 'OPERACIONES', '\frac{7{,}54 + 3{,}08}{9{,}63 - \square} = 3', 1);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (6, 6, 'OPERACIONES', '\\\\frac{7{,}54 + 3{,}08}{9{,}63 - \\\\square} = 3', 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (21, 'A', '6{,}09', true, 6);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (22, 'B', '3{,}54', false, 6);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (23, 'C', '5{,}09', false, 6);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (24, 'D', '3{,}59', false, 6);
 
 -- Pregunta 7 (Q63)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (7, 7, 'OPERACIONES', '\frac{\square \times 6}{3} = 16{,}6', 1);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (7, 7, 'OPERACIONES', '\\\\frac{\\\\square \\\\times 6}{3} = 16{,}6', 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (25, 'A', '6{,}3', false, 7);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (26, 'B', '8{,}3', true, 7);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (27, 'C', '9{,}3', false, 7);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (28, 'D', '7{,}3', false, 7);
 
 -- Pregunta 8 (Q64)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (8, 8, 'OPERACIONES', '\frac{2{,}6 \times 0{,}37}{\square} = 1', 1);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (8, 8, 'OPERACIONES', '\\\\frac{2{,}6 \\\\times 0{,}37}{\\\\square} = 1', 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (29, 'A', '0{,}872', false, 8);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (30, 'B', '0{,}952', false, 8);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (31, 'C', '0{,}962', true, 8);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (32, 'D', '0{,}862', false, 8);
 
 -- Pregunta 9 (Q65)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (9, 9, 'OPERACIONES', '\frac{1}{3} + \square + \frac{1}{6} = \frac{7}{10}', 1);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (33, 'A', '\frac{1}{4}', false, 9);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (34, 'B', '\frac{1}{5}', true, 9);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (35, 'C', '\frac{1}{3}', false, 9);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (36, 'D', '\frac{1}{6}', false, 9);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (9, 9, 'OPERACIONES', '\\\\frac{1}{3} + \\\\square + \\\\frac{1}{6} = \\\\frac{7}{10}', 1);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (33, 'A', '\\\\frac{1}{4}', false, 9);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (34, 'B', '\\\\frac{1}{5}', true, 9);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (35, 'C', '\\\\frac{1}{3}', false, 9);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (36, 'D', '\\\\frac{1}{6}', false, 9);
 
 -- Pregunta 10 (Q66)
-INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (10, 10, 'OPERACIONES', '\frac{\frac{1}{2} \times \frac{1}{3}}{\square} = \frac{2}{3}', 1);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (37, 'A', '\frac{3}{4}', false, 10);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (38, 'B', '\frac{3}{2}', false, 10);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (39, 'C', '\frac{5}{2}', false, 10);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (40, 'D', '\frac{1}{4}', true, 10);
+INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (10, 10, 'OPERACIONES', '\\\\frac{\\\\frac{1}{2} \\\\times \\\\frac{1}{3}}{\\\\square} = \\\\frac{2}{3}', 1);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (37, 'A', '\\\\frac{3}{4}', false, 10);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (38, 'B', '\\\\frac{3}{2}', false, 10);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (39, 'C', '\\\\frac{5}{2}', false, 10);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (40, 'D', '\\\\frac{1}{4}', true, 10);
 
 
 -- === SECCIÓN: PROBLEMAS (Preguntas 11 a 20, orden 1 a 10) ===

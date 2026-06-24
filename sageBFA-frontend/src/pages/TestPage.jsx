@@ -23,12 +23,13 @@ const FALLBACK_TIEMPO_MIN = 6;
 // ─────────────────────────────────────────────
 function MathText({ text, display = false }) {
   if (!text) return null;
-  const hasLatex = /\\frac|\\square|\\times|\\div|\{|\}/.test(text);
+  const safeMath = text.replace(/\\\\/g, '\\');
+  const hasLatex = /\\frac|\\square|\\times|\\div|\{|\}/.test(safeMath);
 
   if (hasLatex) {
     return display
-      ? <BlockMath math={text} />
-      : <InlineMath math={text} />;
+      ? <BlockMath math={safeMath} />
+      : <InlineMath math={safeMath} />;
   }
   return <span>{text}</span>;
 }
@@ -46,6 +47,11 @@ export default function TestPage() {
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [respuestasCandidato, setRespuestasCandidato] = useState([]);
   const [seleccionActual, setSeleccionActual] = useState(null);
+
+  // Estados de seguridad para pantalla completa (Fullscreen Police)
+  const [isFullscreenViolated, setIsFullscreenViolated] = useState(false);
+  const [violationCountdown, setViolationCountdown] = useState(10);
+  const [isTestInvalidated, setIsTestInvalidated] = useState(false);
 
   // Refs
   const faseRef = useRef(fase);
@@ -242,6 +248,58 @@ export default function TestPage() {
   }, [esTestActivo, tiempoRestante === null, alAgotarTiempo]);
 
   // ─────────────────────────────────────────────
+  // 4. Seguridad: Fullscreen Police
+  // ─────────────────────────────────────────────
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const enFaseTest = fase === FASES.TEST_OPERACIONES || fase === FASES.TEST_PROBLEMAS;
+      if (enFaseTest) {
+        if (!document.fullscreenElement) {
+          setIsFullscreenViolated(true);
+        } else {
+          setIsFullscreenViolated(false);
+          setViolationCountdown(10);
+        }
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    const enFaseTest = fase === FASES.TEST_OPERACIONES || fase === FASES.TEST_PROBLEMAS;
+    if (!enFaseTest) {
+      setIsFullscreenViolated(false);
+      setViolationCountdown(10);
+    }
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [fase]);
+
+  useEffect(() => {
+    let timer = null;
+    if (isFullscreenViolated && violationCountdown > 0) {
+      timer = setTimeout(() => {
+        setViolationCountdown(prev => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isFullscreenViolated, violationCountdown]);
+
+  useEffect(() => {
+    if (isFullscreenViolated && violationCountdown === 0) {
+      // Detener el temporizador principal
+      if (intervaloRef.current) {
+        clearInterval(intervaloRef.current);
+        intervaloRef.current = null;
+      }
+      setIsTestInvalidated(true);
+    }
+  }, [isFullscreenViolated, violationCountdown]);
+
+  // ─────────────────────────────────────────────
   // Pantalla completa
   // ─────────────────────────────────────────────
   function entrarPantallaCompleta() {
@@ -307,6 +365,33 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
+  // Renderizado: Pantalla de Anulación (Fullscreen Police)
+  // ─────────────────────────────────────────────
+  if (isTestInvalidated) {
+    return (
+      <div className="fixed inset-0 z-50 bg-gray-900 text-white flex flex-col items-center justify-center text-center p-8">
+        <div className="max-w-md rounded-2xl bg-gray-800/60 p-8 border border-red-500/30 shadow-2xl backdrop-blur-md">
+          {/* Icono de X roja grande */}
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-950 text-red-500 border border-red-500/50 shadow-lg shadow-red-950/50">
+            <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-red-500">¡PRUEBA INVALIDADA!</h2>
+          <p className="mb-6 text-sm text-gray-300 leading-relaxed">
+            El tiempo límite para regresar a la pantalla completa ha expirado. Por motivos de seguridad y para garantizar la integridad de los resultados, esta sesión ha sido anulada.
+          </p>
+          <div className="rounded-xl bg-gray-950/60 p-4 border border-gray-700/50">
+            <p className="text-sm font-bold text-yellow-500 uppercase tracking-wide animate-pulse">
+              Por favor, permanezca en su lugar y llame inmediatamente al psicólogo evaluador.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────
   // Renderizado: Loading
   // ─────────────────────────────────────────────
   if (loading) {
@@ -360,6 +445,39 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
+  // Renderizado: Pantalla de Infracción (Fullscreen Police)
+  // ─────────────────────────────────────────────
+  if (isFullscreenViolated) {
+    return (
+      <div className="fixed inset-0 z-50 bg-red-950 text-white flex flex-col items-center justify-center text-center p-8">
+        <div className="max-w-md rounded-2xl bg-red-900/60 p-8 border border-red-500/30 shadow-2xl backdrop-blur-md">
+          {/* Icono de advertencia */}
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-800 text-red-200 animate-bounce">
+            <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="mb-4 text-2xl font-extrabold tracking-tight">¡Atención! Has salido de pantalla completa</h2>
+          <p className="mb-6 text-sm text-red-200 leading-relaxed">
+            Para garantizar la integridad de la evaluación, es obligatorio permanecer en modo pantalla completa. 
+            Por favor presione <strong>F11</strong> o el botón de abajo para volver al examen.
+          </p>
+          <p className="mb-8 text-lg font-bold text-red-300 animate-pulse">
+            La prueba se anulará automáticamente en: <span className="font-mono text-2xl text-white font-extrabold">{violationCountdown}</span> segundos
+          </p>
+          <button
+            type="button"
+            onClick={entrarPantallaCompleta}
+            className="w-full rounded-xl bg-white px-6 py-4 text-sm font-bold uppercase tracking-wide text-red-950 shadow-lg transition hover:bg-red-50 hover:shadow-xl active:scale-[0.98]"
+          >
+            REGRESAR AL EXAMEN
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────
   // Renderizado: Instrucciones de Operaciones
   // ─────────────────────────────────────────────
   if (fase === FASES.INSTRUCCIONES_OPERACIONES) {
@@ -389,7 +507,7 @@ export default function TestPage() {
             <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/60 p-5">
               <p className="mb-3 text-xs font-bold uppercase tracking-wider text-indigo-500">Ejemplo</p>
               <div className="mb-4 text-center">
-                <BlockMath math="3 + \square = 8" />
+                <BlockMath math="3 + \\square = 8" />
               </div>
               <div className="flex justify-center gap-3">
                 {[
@@ -590,7 +708,7 @@ export default function TestPage() {
                   <div className="pt-1.5 text-base leading-relaxed text-slate-800 sm:text-lg">
                     {usarKatex ? (
                       <div className="flex items-center justify-center">
-                        <BlockMath math={preguntaActual.enunciado} />
+                        <BlockMath math={preguntaActual.enunciado.replace(/\\\\/g, '\\')} />
                       </div>
                     ) : (
                       <p className="font-medium">{preguntaActual.enunciado}</p>
