@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BlockMath, InlineMath } from 'react-katex';
+import TeX from '@matejmazur/react-katex';
 import api from '../services/api';
 
 // ─────────────────────────────────────────────
@@ -23,13 +23,11 @@ const FALLBACK_TIEMPO_MIN = 6;
 // ─────────────────────────────────────────────
 function MathText({ text, display = false }) {
   if (!text) return null;
-  const safeMath = text.replace(/\\\\/g, '\\');
-  const hasLatex = /\\frac|\\square|\\times|\\div|\{|\}/.test(safeMath);
+  const safeMath = text.replace(/\\+/g, '\\').replace(/\\square/g, '\\Box');
+  const hasLatex = /\\frac|\\Box|\\square|\\times|\\div|\{|\}/.test(safeMath);
 
   if (hasLatex) {
-    return display
-      ? <BlockMath math={safeMath} />
-      : <InlineMath math={safeMath} />;
+    return <TeX block={display} math={safeMath} />;
   }
   return <span>{text}</span>;
 }
@@ -507,7 +505,7 @@ export default function TestPage() {
             <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/60 p-5">
               <p className="mb-3 text-xs font-bold uppercase tracking-wider text-indigo-500">Ejemplo</p>
               <div className="mb-4 text-center">
-                <BlockMath math="3 + \\square = 8" />
+                <TeX block math={"3 + \\Box = 8"} />
               </div>
               <div className="flex justify-center gap-3">
                 {[
@@ -708,7 +706,7 @@ export default function TestPage() {
                   <div className="pt-1.5 text-base leading-relaxed text-slate-800 sm:text-lg">
                     {usarKatex ? (
                       <div className="flex items-center justify-center">
-                        <BlockMath math={preguntaActual.enunciado.replace(/\\\\/g, '\\')} />
+                        <TeX block math={preguntaActual.enunciado.replace(/\\+/g, '\\').replace(/\\square/g, '\\Box')} />
                       </div>
                     ) : (
                       <p className="font-medium">{preguntaActual.enunciado}</p>
