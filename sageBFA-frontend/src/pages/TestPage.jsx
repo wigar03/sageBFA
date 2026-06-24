@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BlockMath, InlineMath } from 'react-katex';
 import api from '../services/api';
 
 // ─────────────────────────────────────────────
@@ -16,6 +17,22 @@ const FASES = {
 
 const FALLBACK_TIEMPO_MIN = 6;
 
+// ─────────────────────────────────────────────
+// Componente auxiliar: detecta si un texto contiene LaTeX
+// y lo renderiza con KaTeX o como texto plano
+// ─────────────────────────────────────────────
+function MathText({ text, display = false }) {
+  if (!text) return null;
+  const hasLatex = /\\frac|\\square|\\times|\\div|\{|\}/.test(text);
+
+  if (hasLatex) {
+    return display
+      ? <BlockMath math={text} />
+      : <InlineMath math={text} />;
+  }
+  return <span>{text}</span>;
+}
+
 export default function TestPage() {
   const navigate = useNavigate();
 
@@ -28,11 +45,9 @@ export default function TestPage() {
   const [preguntaActualIndex, setPreguntaActualIndex] = useState(0);
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [respuestasCandidato, setRespuestasCandidato] = useState([]);
-
-  // Selección temporal de la pregunta actual (se confirma al presionar Siguiente)
   const [seleccionActual, setSeleccionActual] = useState(null);
 
-  // Refs para acceder a valores actuales en callbacks de setInterval
+  // Refs
   const faseRef = useRef(fase);
   const respuestasRef = useRef(respuestasCandidato);
   const testDataRef = useRef(testData);
@@ -82,6 +97,9 @@ export default function TestPage() {
   // ─────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────
+  const esTestActivo = fase === FASES.TEST_OPERACIONES || fase === FASES.TEST_PROBLEMAS;
+  const esOperaciones = fase === FASES.TEST_OPERACIONES || fase === FASES.INSTRUCCIONES_OPERACIONES;
+
   const preguntasSeccionActual = testData
     ? (fase === FASES.TEST_OPERACIONES || fase === FASES.INSTRUCCIONES_OPERACIONES
         ? testData.operaciones
@@ -90,8 +108,11 @@ export default function TestPage() {
 
   const totalPreguntas = preguntasSeccionActual.length;
   const preguntaActual = preguntasSeccionActual[preguntaActualIndex] || null;
-  const progreso = totalPreguntas > 0 ? ((preguntaActualIndex) / totalPreguntas) * 100 : 0;
+  const progreso = totalPreguntas > 0 ? (preguntaActualIndex / totalPreguntas) * 100 : 0;
   const esUltimaPregunta = preguntaActualIndex === totalPreguntas - 1;
+
+  // Detectar si la sección actual usa LaTeX (operaciones sí, problemas no)
+  const usarKatex = fase === FASES.TEST_OPERACIONES;
 
   function formatTiempo(seg) {
     if (seg === null || seg === undefined) return '--:--';
@@ -101,10 +122,13 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
-  // Registrar la respuesta actual y avanzar
+  // Registrar respuesta actual
   // ─────────────────────────────────────────────
   function registrarRespuestaActual() {
-    const pregunta = preguntasSeccionActual[preguntaIndexRef.current];
+    const preguntas = faseRef.current === FASES.TEST_OPERACIONES
+      ? testDataRef.current?.operaciones
+      : testDataRef.current?.problemas;
+    const pregunta = preguntas?.[preguntaIndexRef.current];
     if (!pregunta) return;
 
     const tiempoTranscurrido = Math.round((Date.now() - tiempoInicioSeccionRef.current) / 1000);
@@ -115,7 +139,7 @@ export default function TestPage() {
         ...sinDuplicado,
         {
           preguntaId: pregunta.id,
-          opcionElegidaId: seleccionRef.current,  // puede ser null
+          opcionElegidaId: seleccionRef.current,
           tiempoSegundos: tiempoTranscurrido,
         },
       ];
@@ -123,7 +147,7 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
-  // Registrar preguntas que NO se respondieron (tiempo agotado)
+  // Registrar preguntas restantes como no respondidas
   // ─────────────────────────────────────────────
   function registrarPreguntasRestantes(preguntas, desdeIndex) {
     const tiempoTotal = faseRef.current === FASES.TEST_OPERACIONES
@@ -157,37 +181,34 @@ export default function TestPage() {
       const payload = { ...candidato, respuestas: respuestasFinales };
       const { data: resultado } = await api.post('/test-numerico/evaluar', payload);
 
+      // Salir de pantalla completa antes de redirigir
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
       navigate('/resultados', { state: { resultado }, replace: true });
     } catch (err) {
       setError('Error al enviar la evaluación: ' + (err.response?.data?.error || err.message));
-      setFase(FASES.TEST_PROBLEMAS); // Permitir reintentar
+      setFase(FASES.TEST_PROBLEMAS);
     }
   }, [navigate]);
 
   // ─────────────────────────────────────────────
-  // Avanzar de fase al agotar el tiempo
+  // Agotar tiempo
   // ─────────────────────────────────────────────
   const alAgotarTiempo = useCallback(() => {
-    // Registrar la pregunta actual (si la hay) como la selección que tuviera
     registrarRespuestaActual();
 
     const data = testDataRef.current;
     if (!data) return;
 
     if (faseRef.current === FASES.TEST_OPERACIONES) {
-      // Registrar todas las preguntas restantes de operaciones
       registrarPreguntasRestantes(data.operaciones, preguntaIndexRef.current + 1);
-
-      // Ir a instrucciones de problemas
       setPreguntaActualIndex(0);
       setSeleccionActual(null);
       setFase(FASES.INSTRUCCIONES_PROBLEMAS);
-
     } else if (faseRef.current === FASES.TEST_PROBLEMAS) {
-      // Registrar restantes de problemas y enviar
       registrarPreguntasRestantes(data.problemas, preguntaIndexRef.current + 1);
-
-      // Usar setTimeout para que el estado se actualice antes de leer respuestasRef
       setTimeout(() => {
         enviarEvaluacion(respuestasRef.current);
       }, 50);
@@ -195,11 +216,10 @@ export default function TestPage() {
   }, [enviarEvaluacion]);
 
   // ─────────────────────────────────────────────
-  // 3. Temporizador — solo corre en fases de test
+  // 3. Temporizador
   // ─────────────────────────────────────────────
   useEffect(() => {
-    const esTest = fase === FASES.TEST_OPERACIONES || fase === FASES.TEST_PROBLEMAS;
-    if (!esTest || tiempoRestante === null) return;
+    if (!esTestActivo || tiempoRestante === null) return;
 
     intervaloRef.current = setInterval(() => {
       setTiempoRestante((prev) => {
@@ -219,12 +239,25 @@ export default function TestPage() {
         intervaloRef.current = null;
       }
     };
-  }, [fase, tiempoRestante === null, alAgotarTiempo]);
+  }, [esTestActivo, tiempoRestante === null, alAgotarTiempo]);
 
   // ─────────────────────────────────────────────
-  // Iniciar sección de test (botón de instrucciones)
+  // Pantalla completa
+  // ─────────────────────────────────────────────
+  function entrarPantallaCompleta() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    } else if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen();
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Iniciar secciones
   // ─────────────────────────────────────────────
   function iniciarOperaciones() {
+    entrarPantallaCompleta();
     const minutos = testData?.tiempoOperacionesMin ?? FALLBACK_TIEMPO_MIN;
     setTiempoRestante(minutos * 60);
     tiempoInicioSeccionRef.current = Date.now();
@@ -243,21 +276,16 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
-  // Botón "Siguiente" / "Finalizar Sección"
+  // Botón Siguiente / Finalizar Sección
   // ─────────────────────────────────────────────
   function handleSiguiente() {
-    // 1. Registrar respuesta (puede ser null si no seleccionó nada)
     registrarRespuestaActual();
 
-    // 2. Determinar qué hacer
     if (!esUltimaPregunta) {
-      // Avanzar a la siguiente pregunta
       setPreguntaActualIndex(prev => prev + 1);
       setSeleccionActual(null);
     } else {
-      // Última pregunta de la sección
       if (fase === FASES.TEST_OPERACIONES) {
-        // Detener timer e ir a instrucciones de problemas
         if (intervaloRef.current) {
           clearInterval(intervaloRef.current);
           intervaloRef.current = null;
@@ -267,7 +295,6 @@ export default function TestPage() {
         setSeleccionActual(null);
         setFase(FASES.INSTRUCCIONES_PROBLEMAS);
       } else {
-        // Fin de problemas → enviar
         if (intervaloRef.current) {
           clearInterval(intervaloRef.current);
           intervaloRef.current = null;
@@ -319,7 +346,7 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
-  // Renderizado: Finalizando (enviando)
+  // Renderizado: Finalizando
   // ─────────────────────────────────────────────
   if (fase === FASES.FINALIZANDO) {
     return (
@@ -340,7 +367,6 @@ export default function TestPage() {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-12">
         <div className="w-full max-w-xl">
           <div className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-900/5 sm:p-10">
-            {/* Badge de sección */}
             <div className="mb-6 flex items-center gap-2">
               <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-700">
                 Sección 1 de 2
@@ -359,24 +385,29 @@ export default function TestPage() {
               encontrar el número que complete la operación.
             </p>
 
-            {/* Ejemplo visual */}
+            {/* Ejemplo con KaTeX */}
             <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/60 p-5">
               <p className="mb-3 text-xs font-bold uppercase tracking-wider text-indigo-500">Ejemplo</p>
-              <p className="mb-4 text-center text-lg font-bold text-slate-800">
-                3 + <span className="inline-block w-10 border-b-2 border-indigo-400 text-center text-indigo-600">___</span> = 8
-              </p>
+              <div className="mb-4 text-center">
+                <BlockMath math="3 + \square = 8" />
+              </div>
               <div className="flex justify-center gap-3">
-                {['A) 3', 'B) 5', 'C) 6', 'D) 4'].map((op, i) => (
+                {[
+                  { label: 'A) 3', correct: false },
+                  { label: 'B) 5', correct: true },
+                  { label: 'C) 6', correct: false },
+                  { label: 'D) 4', correct: false },
+                ].map((op, i) => (
                   <span
                     key={i}
                     className={
                       'rounded-lg border px-4 py-2 text-sm font-semibold ' +
-                      (i === 1
+                      (op.correct
                         ? 'border-green-400 bg-green-50 text-green-700'
                         : 'border-slate-200 bg-white text-slate-600')
                     }
                   >
-                    {op}
+                    {op.label}
                   </span>
                 ))}
               </div>
@@ -409,7 +440,6 @@ export default function TestPage() {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-12">
         <div className="w-full max-w-xl">
           <div className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-900/5 sm:p-10">
-            {/* Badge de sección */}
             <div className="mb-6 flex items-center gap-2">
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-700">
                 Sección 2 de 2
@@ -426,24 +456,29 @@ export default function TestPage() {
               Existe una sola respuesta correcta.
             </p>
 
-            {/* Ejemplo visual */}
+            {/* Ejemplo */}
             <div className="mb-6 rounded-xl border border-emerald-100 bg-emerald-50/60 p-5">
               <p className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-500">Ejemplo</p>
               <p className="mb-4 text-center text-sm font-medium text-slate-700 sm:text-base">
                 "Pedro tiene 28 cts., Juan tiene 31 cts. ¿Cuánto tienen entre los dos?"
               </p>
               <div className="flex justify-center gap-3">
-                {['A) 49', 'B) 59', 'C) 50', 'D) 60'].map((op, i) => (
+                {[
+                  { label: 'A) 49', correct: false },
+                  { label: 'B) 59', correct: true },
+                  { label: 'C) 50', correct: false },
+                  { label: 'D) 60', correct: false },
+                ].map((op, i) => (
                   <span
                     key={i}
                     className={
                       'rounded-lg border px-4 py-2 text-sm font-semibold ' +
-                      (i === 1
+                      (op.correct
                         ? 'border-green-400 bg-green-50 text-green-700'
                         : 'border-slate-200 bg-white text-slate-600')
                     }
                   >
-                    {op}
+                    {op.label}
                   </span>
                 ))}
               </div>
@@ -472,7 +507,6 @@ export default function TestPage() {
   // Renderizado: Test (Operaciones o Problemas)
   // ─────────────────────────────────────────────
   const tiempoBajo = tiempoRestante !== null && tiempoRestante < 60;
-  const esOperaciones = fase === FASES.TEST_OPERACIONES;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -484,12 +518,12 @@ export default function TestPage() {
             <span
               className={
                 'rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ' +
-                (esOperaciones
+                (fase === FASES.TEST_OPERACIONES
                   ? 'bg-indigo-100 text-indigo-700'
                   : 'bg-emerald-100 text-emerald-700')
               }
             >
-              {esOperaciones ? 'Operaciones' : 'Problemas'}
+              {fase === FASES.TEST_OPERACIONES ? 'Operaciones' : 'Problemas'}
             </span>
             <span className="text-xs text-slate-400 font-medium">
               {preguntaActualIndex + 1} / {totalPreguntas}
@@ -521,7 +555,7 @@ export default function TestPage() {
           <div
             className={
               'h-full transition-all duration-500 ease-out ' +
-              (esOperaciones ? 'bg-indigo-500' : 'bg-emerald-500')
+              (fase === FASES.TEST_OPERACIONES ? 'bg-indigo-500' : 'bg-emerald-500')
             }
             style={{ width: `${progreso}%` }}
           />
@@ -546,14 +580,22 @@ export default function TestPage() {
                   <span
                     className={
                       'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ' +
-                      (esOperaciones ? 'bg-indigo-600' : 'bg-emerald-600')
+                      (fase === FASES.TEST_OPERACIONES ? 'bg-indigo-600' : 'bg-emerald-600')
                     }
                   >
                     {preguntaActualIndex + 1}
                   </span>
-                  <p className="pt-1.5 text-base font-medium leading-relaxed text-slate-800 sm:text-lg">
-                    {preguntaActual.enunciado}
-                  </p>
+
+                  {/* Enunciado: con KaTeX para operaciones, texto plano para problemas */}
+                  <div className="pt-1.5 text-base leading-relaxed text-slate-800 sm:text-lg">
+                    {usarKatex ? (
+                      <div className="flex items-center justify-center">
+                        <BlockMath math={preguntaActual.enunciado} />
+                      </div>
+                    ) : (
+                      <p className="font-medium">{preguntaActual.enunciado}</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Opciones */}
@@ -573,7 +615,7 @@ export default function TestPage() {
                             : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/40')
                         }
                       >
-                        {/* Indicador radio visual */}
+                        {/* Indicador radio */}
                         <span
                           className={
                             'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200 ' +
@@ -585,9 +627,14 @@ export default function TestPage() {
                           {isSelected && <span className="h-2.5 w-2.5 rounded-full bg-white" />}
                         </span>
 
-                        <span>
-                          <span className="mr-2 font-bold">{opcion.literal})</span>
-                          {opcion.textoOpcion}
+                        {/* Literal + texto/math */}
+                        <span className="flex items-center gap-2">
+                          <span className="font-bold">{opcion.literal})</span>
+                          {usarKatex ? (
+                            <MathText text={opcion.textoOpcion} />
+                          ) : (
+                            <span>{opcion.textoOpcion}</span>
+                          )}
                         </span>
                       </button>
                     );
@@ -602,7 +649,7 @@ export default function TestPage() {
                   onClick={handleSiguiente}
                   className={
                     'inline-flex items-center gap-2 rounded-xl px-10 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:shadow-xl active:scale-[0.97] ' +
-                    (esOperaciones
+                    (fase === FASES.TEST_OPERACIONES
                       ? 'bg-indigo-600 hover:bg-indigo-700'
                       : 'bg-emerald-600 hover:bg-emerald-700')
                   }

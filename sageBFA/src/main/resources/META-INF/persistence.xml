@@ -34,9 +34,9 @@
     	<class>org.uam.sagebfa.sageBFA.model.BaremoNacional</class>
     	<class>org.uam.sagebfa.sageBFA.model.ResultadoN2</class>
         <properties>
-            <property name="javax.persistence.schema-generation.database.action" value="update"/>
-            <property name="hibernate.hbm2ddl.auto" value="update"/>
-            <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"/>
+			<property name="javax.persistence.schema-generation.database.action" value="update"/>
+			<property name="hibernate.hbm2ddl.auto" value="update"/>
+			<property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"/>
             <property name="hibernate.hbm2ddl.import_files" value="/import.sql"/>
         </properties>
     </persistence-unit>
