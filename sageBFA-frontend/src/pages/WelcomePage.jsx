@@ -5,7 +5,6 @@ const NIVELES_ESTUDIO = [
   { value: '', label: 'Selecciona tu nivel de estudio' },
   { value: 'PRIMARIA', label: 'Primaria' },
   { value: 'SECUNDARIA', label: 'Secundaria' },
-  { value: 'BACHILLERATO', label: 'Bachillerato' },
   { value: 'TECNICO', label: 'Técnico' },
   { value: 'LICENCIATURA', label: 'Licenciatura' },
   { value: 'POSGRADO', label: 'Posgrado' },
