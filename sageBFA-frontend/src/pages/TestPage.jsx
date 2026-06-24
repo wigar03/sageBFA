@@ -1,37 +1,51 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 
 // ─────────────────────────────────────────────
-// Constantes
+// Constantes de Fases
 // ─────────────────────────────────────────────
-const SECCIONES = { OPERACIONES: 'OPERACIONES', PROBLEMAS: 'PROBLEMAS' };
-const FALLBACK_TIEMPO_MIN = 6; // 6 minutos por defecto si la API no envía tiempos
+const FASES = {
+  INSTRUCCIONES_OPERACIONES: 'INSTRUCCIONES_OPERACIONES',
+  TEST_OPERACIONES: 'TEST_OPERACIONES',
+  INSTRUCCIONES_PROBLEMAS: 'INSTRUCCIONES_PROBLEMAS',
+  TEST_PROBLEMAS: 'TEST_PROBLEMAS',
+  FINALIZANDO: 'FINALIZANDO',
+};
+
+const FALLBACK_TIEMPO_MIN = 6;
 
 export default function TestPage() {
   const navigate = useNavigate();
 
   // ── Estados principales ──
-  const [testData, setTestData] = useState(null);        // Respuesta completa del GET
+  const [testData, setTestData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [enviando, setEnviando] = useState(false);
 
-  const [seccionActual, setSeccionActual] = useState(SECCIONES.OPERACIONES);
-  const [tiempoRestante, setTiempoRestante] = useState(null); // Se inicializa al recibir la API
-  const [respuestasCandidato, setRespuestasCandidato] = useState([]); // { preguntaId, opcionElegidaId, tiempoSegundos }
+  const [fase, setFase] = useState(FASES.INSTRUCCIONES_OPERACIONES);
+  const [preguntaActualIndex, setPreguntaActualIndex] = useState(0);
+  const [tiempoRestante, setTiempoRestante] = useState(null);
+  const [respuestasCandidato, setRespuestasCandidato] = useState([]);
 
-  // Refs para acceder al valor más reciente dentro de callbacks del intervalo
-  const seccionRef = useRef(seccionActual);
+  // Selección temporal de la pregunta actual (se confirma al presionar Siguiente)
+  const [seleccionActual, setSeleccionActual] = useState(null);
+
+  // Refs para acceder a valores actuales en callbacks de setInterval
+  const faseRef = useRef(fase);
   const respuestasRef = useRef(respuestasCandidato);
   const testDataRef = useRef(testData);
+  const preguntaIndexRef = useRef(preguntaActualIndex);
+  const seleccionRef = useRef(seleccionActual);
   const intervaloRef = useRef(null);
   const tiempoInicioSeccionRef = useRef(Date.now());
 
-  // Mantener los refs sincronizados con el estado
-  useEffect(() => { seccionRef.current = seccionActual; }, [seccionActual]);
+  useEffect(() => { faseRef.current = fase; }, [fase]);
   useEffect(() => { respuestasRef.current = respuestasCandidato; }, [respuestasCandidato]);
   useEffect(() => { testDataRef.current = testData; }, [testData]);
+  useEffect(() => { preguntaIndexRef.current = preguntaActualIndex; }, [preguntaActualIndex]);
+  useEffect(() => { seleccionRef.current = seleccionActual; }, [seleccionActual]);
 
   // ─────────────────────────────────────────────
   // 1. Verificar candidato en localStorage
@@ -53,13 +67,7 @@ export default function TestPage() {
       try {
         const { data } = await api.get('/test-numerico');
         if (cancelado) return;
-
         setTestData(data);
-
-        // Inicializar el temporizador con el tiempo de Operaciones de la API (o fallback 6 min)
-        const minutos = data.tiempoOperacionesMin ?? FALLBACK_TIEMPO_MIN;
-        setTiempoRestante(minutos * 60);
-        tiempoInicioSeccionRef.current = Date.now();
       } catch (err) {
         if (!cancelado) setError(err.message || 'Error al cargar el test.');
       } finally {
@@ -72,13 +80,73 @@ export default function TestPage() {
   }, []);
 
   // ─────────────────────────────────────────────
-  // 5. Función de envío del POST final
+  // Helpers
+  // ─────────────────────────────────────────────
+  const preguntasSeccionActual = testData
+    ? (fase === FASES.TEST_OPERACIONES || fase === FASES.INSTRUCCIONES_OPERACIONES
+        ? testData.operaciones
+        : testData.problemas)
+    : [];
+
+  const totalPreguntas = preguntasSeccionActual.length;
+  const preguntaActual = preguntasSeccionActual[preguntaActualIndex] || null;
+  const progreso = totalPreguntas > 0 ? ((preguntaActualIndex) / totalPreguntas) * 100 : 0;
+  const esUltimaPregunta = preguntaActualIndex === totalPreguntas - 1;
+
+  function formatTiempo(seg) {
+    if (seg === null || seg === undefined) return '--:--';
+    const m = Math.floor(seg / 60).toString().padStart(2, '0');
+    const s = (seg % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  // ─────────────────────────────────────────────
+  // Registrar la respuesta actual y avanzar
+  // ─────────────────────────────────────────────
+  function registrarRespuestaActual() {
+    const pregunta = preguntasSeccionActual[preguntaIndexRef.current];
+    if (!pregunta) return;
+
+    const tiempoTranscurrido = Math.round((Date.now() - tiempoInicioSeccionRef.current) / 1000);
+
+    setRespuestasCandidato((prev) => {
+      const sinDuplicado = prev.filter(r => r.preguntaId !== pregunta.id);
+      return [
+        ...sinDuplicado,
+        {
+          preguntaId: pregunta.id,
+          opcionElegidaId: seleccionRef.current,  // puede ser null
+          tiempoSegundos: tiempoTranscurrido,
+        },
+      ];
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // Registrar preguntas que NO se respondieron (tiempo agotado)
+  // ─────────────────────────────────────────────
+  function registrarPreguntasRestantes(preguntas, desdeIndex) {
+    const tiempoTotal = faseRef.current === FASES.TEST_OPERACIONES
+      ? (testDataRef.current?.tiempoOperacionesMin ?? FALLBACK_TIEMPO_MIN) * 60
+      : (testDataRef.current?.tiempoProblemasMin ?? FALLBACK_TIEMPO_MIN) * 60;
+
+    const respondidas = new Set(respuestasRef.current.map(r => r.preguntaId));
+    const noRespondidas = preguntas
+      .slice(desdeIndex)
+      .filter(p => !respondidas.has(p.id))
+      .map(p => ({ preguntaId: p.id, opcionElegidaId: null, tiempoSegundos: tiempoTotal }));
+
+    if (noRespondidas.length > 0) {
+      setRespuestasCandidato(prev => [...prev, ...noRespondidas]);
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // POST final
   // ─────────────────────────────────────────────
   const enviarEvaluacion = useCallback(async (respuestasFinales) => {
-    if (enviando) return;
-    setEnviando(true);
+    setFase(FASES.FINALIZANDO);
 
-    // Detener el temporizador
     if (intervaloRef.current) {
       clearInterval(intervaloRef.current);
       intervaloRef.current = null;
@@ -86,86 +154,59 @@ export default function TestPage() {
 
     try {
       const candidato = JSON.parse(localStorage.getItem('candidato_actual') || '{}');
-
-      const payload = {
-        ...candidato,
-        respuestas: respuestasFinales,
-      };
-
+      const payload = { ...candidato, respuestas: respuestasFinales };
       const { data: resultado } = await api.post('/test-numerico/evaluar', payload);
 
-      // Redirigir a /resultados pasando el resultado a través del state de la ruta
       navigate('/resultados', { state: { resultado }, replace: true });
-
     } catch (err) {
-      setEnviando(false);
       setError('Error al enviar la evaluación: ' + (err.response?.data?.error || err.message));
+      setFase(FASES.TEST_PROBLEMAS); // Permitir reintentar
     }
-  }, [enviando, navigate]);
+  }, [navigate]);
 
   // ─────────────────────────────────────────────
-  // Función para avanzar de sección o finalizar
+  // Avanzar de fase al agotar el tiempo
   // ─────────────────────────────────────────────
-  const avanzarSeccion = useCallback(() => {
-    if (seccionRef.current === SECCIONES.OPERACIONES) {
-      // Registrar preguntas de Operaciones no respondidas con opcionElegidaId = null
-      const data = testDataRef.current;
-      if (data) {
-        const preguntasOp = data.operaciones || [];
-        const respondidas = new Set(respuestasRef.current.map(r => r.preguntaId));
-        const tiempoTotal = (data.tiempoOperacionesMin ?? FALLBACK_TIEMPO_MIN) * 60;
+  const alAgotarTiempo = useCallback(() => {
+    // Registrar la pregunta actual (si la hay) como la selección que tuviera
+    registrarRespuestaActual();
 
-        const noRespondidas = preguntasOp
-          .filter(p => !respondidas.has(p.id))
-          .map(p => ({ preguntaId: p.id, opcionElegidaId: null, tiempoSegundos: tiempoTotal }));
+    const data = testDataRef.current;
+    if (!data) return;
 
-        if (noRespondidas.length > 0) {
-          setRespuestasCandidato(prev => [...prev, ...noRespondidas]);
-        }
-      }
+    if (faseRef.current === FASES.TEST_OPERACIONES) {
+      // Registrar todas las preguntas restantes de operaciones
+      registrarPreguntasRestantes(data.operaciones, preguntaIndexRef.current + 1);
 
-      // Cambiar a PROBLEMAS y reiniciar temporizador
-      setSeccionActual(SECCIONES.PROBLEMAS);
-      const minutosProblemas = data?.tiempoProblemasMin ?? FALLBACK_TIEMPO_MIN;
-      setTiempoRestante(minutosProblemas * 60);
-      tiempoInicioSeccionRef.current = Date.now();
+      // Ir a instrucciones de problemas
+      setPreguntaActualIndex(0);
+      setSeleccionActual(null);
+      setFase(FASES.INSTRUCCIONES_PROBLEMAS);
 
-    } else {
-      // Estamos en PROBLEMAS → registrar no respondidas y enviar
-      const data = testDataRef.current;
-      let respuestasFinales = [...respuestasRef.current];
+    } else if (faseRef.current === FASES.TEST_PROBLEMAS) {
+      // Registrar restantes de problemas y enviar
+      registrarPreguntasRestantes(data.problemas, preguntaIndexRef.current + 1);
 
-      if (data) {
-        const preguntasPr = data.problemas || [];
-        const respondidas = new Set(respuestasFinales.map(r => r.preguntaId));
-        const tiempoTotal = (data.tiempoProblemasMin ?? FALLBACK_TIEMPO_MIN) * 60;
-
-        const noRespondidas = preguntasPr
-          .filter(p => !respondidas.has(p.id))
-          .map(p => ({ preguntaId: p.id, opcionElegidaId: null, tiempoSegundos: tiempoTotal }));
-
-        respuestasFinales = [...respuestasFinales, ...noRespondidas];
-      }
-
-      enviarEvaluacion(respuestasFinales);
+      // Usar setTimeout para que el estado se actualice antes de leer respuestasRef
+      setTimeout(() => {
+        enviarEvaluacion(respuestasRef.current);
+      }, 50);
     }
   }, [enviarEvaluacion]);
 
   // ─────────────────────────────────────────────
-  // 3. Temporizador (setInterval)
+  // 3. Temporizador — solo corre en fases de test
   // ─────────────────────────────────────────────
   useEffect(() => {
-    // No iniciar hasta que tengamos el tiempo calculado
-    if (tiempoRestante === null) return;
+    const esTest = fase === FASES.TEST_OPERACIONES || fase === FASES.TEST_PROBLEMAS;
+    if (!esTest || tiempoRestante === null) return;
 
     intervaloRef.current = setInterval(() => {
       setTiempoRestante((prev) => {
         if (prev <= 1) {
-          // El tiempo llegó a 0 → avanzar sección
           clearInterval(intervaloRef.current);
           intervaloRef.current = null;
-          // Usamos setTimeout para evitar setState dentro de setState
-          setTimeout(() => avanzarSeccion(), 0);
+          setTimeout(() => alAgotarTiempo(), 0);
           return 0;
         }
         return prev - 1;
@@ -178,52 +219,74 @@ export default function TestPage() {
         intervaloRef.current = null;
       }
     };
-  }, [tiempoRestante === null, seccionActual, avanzarSeccion]); // Se re-crea al cambiar de sección
+  }, [fase, tiempoRestante === null, alAgotarTiempo]);
 
   // ─────────────────────────────────────────────
-  // 4. Seleccionar una opción de respuesta
+  // Iniciar sección de test (botón de instrucciones)
   // ─────────────────────────────────────────────
-  function seleccionarOpcion(preguntaId, opcionId) {
-    const tiempoTranscurrido = Math.round((Date.now() - tiempoInicioSeccionRef.current) / 1000);
+  function iniciarOperaciones() {
+    const minutos = testData?.tiempoOperacionesMin ?? FALLBACK_TIEMPO_MIN;
+    setTiempoRestante(minutos * 60);
+    tiempoInicioSeccionRef.current = Date.now();
+    setPreguntaActualIndex(0);
+    setSeleccionActual(null);
+    setFase(FASES.TEST_OPERACIONES);
+  }
 
-    setRespuestasCandidato((prev) => {
-      // Si ya existía una respuesta para esta pregunta, la reemplazamos
-      const sinDuplicado = prev.filter(r => r.preguntaId !== preguntaId);
-      return [
-        ...sinDuplicado,
-        { preguntaId, opcionElegidaId: opcionId, tiempoSegundos: tiempoTranscurrido },
-      ];
-    });
+  function iniciarProblemas() {
+    const minutos = testData?.tiempoProblemasMin ?? FALLBACK_TIEMPO_MIN;
+    setTiempoRestante(minutos * 60);
+    tiempoInicioSeccionRef.current = Date.now();
+    setPreguntaActualIndex(0);
+    setSeleccionActual(null);
+    setFase(FASES.TEST_PROBLEMAS);
   }
 
   // ─────────────────────────────────────────────
-  // Helpers de renderizado
+  // Botón "Siguiente" / "Finalizar Sección"
   // ─────────────────────────────────────────────
-  function formatTiempo(seg) {
-    const m = Math.floor(seg / 60).toString().padStart(2, '0');
-    const s = (seg % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
+  function handleSiguiente() {
+    // 1. Registrar respuesta (puede ser null si no seleccionó nada)
+    registrarRespuestaActual();
+
+    // 2. Determinar qué hacer
+    if (!esUltimaPregunta) {
+      // Avanzar a la siguiente pregunta
+      setPreguntaActualIndex(prev => prev + 1);
+      setSeleccionActual(null);
+    } else {
+      // Última pregunta de la sección
+      if (fase === FASES.TEST_OPERACIONES) {
+        // Detener timer e ir a instrucciones de problemas
+        if (intervaloRef.current) {
+          clearInterval(intervaloRef.current);
+          intervaloRef.current = null;
+        }
+        setTiempoRestante(null);
+        setPreguntaActualIndex(0);
+        setSeleccionActual(null);
+        setFase(FASES.INSTRUCCIONES_PROBLEMAS);
+      } else {
+        // Fin de problemas → enviar
+        if (intervaloRef.current) {
+          clearInterval(intervaloRef.current);
+          intervaloRef.current = null;
+        }
+        setTimeout(() => {
+          enviarEvaluacion(respuestasRef.current);
+        }, 50);
+      }
+    }
   }
 
-  // Obtener la opción seleccionada para una pregunta
-  function opcionSeleccionada(preguntaId) {
-    const r = respuestasCandidato.find(r => r.preguntaId === preguntaId);
-    return r ? r.opcionElegidaId : null;
-  }
-
-  // Preguntas de la sección actual
-  const preguntas = testData
-    ? (seccionActual === SECCIONES.OPERACIONES ? testData.operaciones : testData.problemas)
-    : [];
-
   // ─────────────────────────────────────────────
-  // Renderizado condicional: Loading
+  // Renderizado: Loading
   // ─────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+          <div className="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
           <p className="text-sm font-medium text-slate-500">Cargando preguntas del test…</p>
         </div>
       </div>
@@ -231,11 +294,11 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
-  // Renderizado condicional: Error
+  // Renderizado: Error
   // ─────────────────────────────────────────────
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
             <svg className="h-7 w-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,13 +319,13 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
-  // Renderizado condicional: Enviando evaluación
+  // Renderizado: Finalizando (enviando)
   // ─────────────────────────────────────────────
-  if (enviando) {
+  if (fase === FASES.FINALIZANDO) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+          <div className="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
           <p className="text-sm font-medium text-slate-500">Enviando evaluación…</p>
         </div>
       </div>
@@ -270,118 +333,260 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
-  // Renderizado principal
+  // Renderizado: Instrucciones de Operaciones
+  // ─────────────────────────────────────────────
+  if (fase === FASES.INSTRUCCIONES_OPERACIONES) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-12">
+        <div className="w-full max-w-xl">
+          <div className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-900/5 sm:p-10">
+            {/* Badge de sección */}
+            <div className="mb-6 flex items-center gap-2">
+              <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-700">
+                Sección 1 de 2
+              </span>
+              <span className="text-xs font-medium text-slate-400">Operaciones</span>
+            </div>
+
+            <h2 className="mb-4 text-xl font-extrabold text-slate-800 sm:text-2xl">
+              Instrucciones — Operaciones
+            </h2>
+
+            <p className="mb-6 leading-relaxed text-slate-600 text-sm sm:text-base">
+              Usted va a encontrar diversos ejercicios. En cada uno de ellos hay operaciones y
+              su resultado. En cada una de estas operaciones falta un número. Entre las cuatro
+              posibles soluciones, <strong>A, B, C y D</strong>, que le son dadas, usted deberá
+              encontrar el número que complete la operación.
+            </p>
+
+            {/* Ejemplo visual */}
+            <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/60 p-5">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-indigo-500">Ejemplo</p>
+              <p className="mb-4 text-center text-lg font-bold text-slate-800">
+                3 + <span className="inline-block w-10 border-b-2 border-indigo-400 text-center text-indigo-600">___</span> = 8
+              </p>
+              <div className="flex justify-center gap-3">
+                {['A) 3', 'B) 5', 'C) 6', 'D) 4'].map((op, i) => (
+                  <span
+                    key={i}
+                    className={
+                      'rounded-lg border px-4 py-2 text-sm font-semibold ' +
+                      (i === 1
+                        ? 'border-green-400 bg-green-50 text-green-700'
+                        : 'border-slate-200 bg-white text-slate-600')
+                    }
+                  >
+                    {op}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-3 text-center text-sm text-green-700 font-medium">
+                ✓ La respuesta correcta es <strong>5</strong> (Letra B).
+              </p>
+            </div>
+
+            <p className="mb-8 text-sm text-slate-500 italic">
+              Dispondrá de <strong className="text-slate-700">6 minutos</strong>. No avance hasta que el evaluador dé la señal.
+            </p>
+
+            <button
+              onClick={iniciarOperaciones}
+              className="w-full rounded-lg bg-indigo-600 px-6 py-3.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-indigo-700 hover:shadow-xl active:scale-[0.98]"
+            >
+              Comenzar Operaciones
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // Renderizado: Instrucciones de Problemas
+  // ─────────────────────────────────────────────
+  if (fase === FASES.INSTRUCCIONES_PROBLEMAS) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4 py-12">
+        <div className="w-full max-w-xl">
+          <div className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-900/5 sm:p-10">
+            {/* Badge de sección */}
+            <div className="mb-6 flex items-center gap-2">
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                Sección 2 de 2
+              </span>
+              <span className="text-xs font-medium text-slate-400">Problemas</span>
+            </div>
+
+            <h2 className="mb-4 text-xl font-extrabold text-slate-800 sm:text-2xl">
+              Instrucciones — Problemas
+            </h2>
+
+            <p className="mb-6 leading-relaxed text-slate-600 text-sm sm:text-base">
+              En cada ejercicio hay un problema aritmético y cuatro posibles soluciones.
+              Existe una sola respuesta correcta.
+            </p>
+
+            {/* Ejemplo visual */}
+            <div className="mb-6 rounded-xl border border-emerald-100 bg-emerald-50/60 p-5">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-500">Ejemplo</p>
+              <p className="mb-4 text-center text-sm font-medium text-slate-700 sm:text-base">
+                "Pedro tiene 28 cts., Juan tiene 31 cts. ¿Cuánto tienen entre los dos?"
+              </p>
+              <div className="flex justify-center gap-3">
+                {['A) 49', 'B) 59', 'C) 50', 'D) 60'].map((op, i) => (
+                  <span
+                    key={i}
+                    className={
+                      'rounded-lg border px-4 py-2 text-sm font-semibold ' +
+                      (i === 1
+                        ? 'border-green-400 bg-green-50 text-green-700'
+                        : 'border-slate-200 bg-white text-slate-600')
+                    }
+                  >
+                    {op}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-3 text-center text-sm text-green-700 font-medium">
+                ✓ La respuesta correcta es <strong>59</strong> (Letra B).
+              </p>
+            </div>
+
+            <p className="mb-8 text-sm text-slate-500 italic">
+              Dispondrá de <strong className="text-slate-700">6 minutos</strong>.
+            </p>
+
+            <button
+              onClick={iniciarProblemas}
+              className="w-full rounded-lg bg-emerald-600 px-6 py-3.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-emerald-700 hover:shadow-xl active:scale-[0.98]"
+            >
+              Comenzar Problemas
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // Renderizado: Test (Operaciones o Problemas)
   // ─────────────────────────────────────────────
   const tiempoBajo = tiempoRestante !== null && tiempoRestante < 60;
+  const esOperaciones = fase === FASES.TEST_OPERACIONES;
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* ── Barra superior fija con temporizador ── */}
-      <header
-        className={
-          'sticky top-0 z-50 flex items-center justify-between px-6 py-3 shadow-md transition-colors duration-300 ' +
-          (tiempoBajo
-            ? 'bg-red-600 text-white'
-            : 'bg-white text-slate-800 border-b border-slate-200')
-        }
-      >
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-bold uppercase tracking-wide sm:text-base">
-            {seccionActual === SECCIONES.OPERACIONES ? 'Sección: Operaciones' : 'Sección: Problemas'}
-          </h1>
-          <span
+    <div className="min-h-screen bg-slate-50">
+      {/* ── Header sticky: sección + temporizador ── */}
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+          {/* Izquierda: badge de sección */}
+          <div className="flex items-center gap-2">
+            <span
+              className={
+                'rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ' +
+                (esOperaciones
+                  ? 'bg-indigo-100 text-indigo-700'
+                  : 'bg-emerald-100 text-emerald-700')
+              }
+            >
+              {esOperaciones ? 'Operaciones' : 'Problemas'}
+            </span>
+            <span className="text-xs text-slate-400 font-medium">
+              {preguntaActualIndex + 1} / {totalPreguntas}
+            </span>
+          </div>
+
+          {/* Derecha: temporizador */}
+          <div
             className={
-              'rounded-full px-3 py-0.5 text-xs font-semibold ' +
-              (tiempoBajo
-                ? 'bg-white/20 text-white'
-                : 'bg-indigo-100 text-indigo-700')
+              'flex items-center gap-2 rounded-lg px-3 py-1.5 transition-colors duration-300 ' +
+              (tiempoBajo ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-700')
             }
           >
-            {seccionActual === SECCIONES.OPERACIONES ? '1 / 2' : '2 / 2'}
-          </span>
+            <svg
+              className={`h-4 w-4 ${tiempoBajo ? 'animate-pulse' : 'text-slate-400'}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className={`font-mono text-lg font-extrabold tracking-wider ${tiempoBajo ? 'animate-pulse' : ''}`}>
+              {formatTiempo(tiempoRestante)}
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Ícono de reloj */}
-          <svg
-            className={`h-5 w-5 ${tiempoBajo ? 'animate-pulse text-white' : 'text-slate-400'}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-
-          <span className={`font-mono text-2xl font-extrabold tracking-wider ${tiempoBajo ? 'animate-pulse' : ''}`}>
-            {tiempoRestante !== null ? formatTiempo(tiempoRestante) : '--:--'}
-          </span>
+        {/* Barra de progreso */}
+        <div className="h-1 w-full bg-slate-200">
+          <div
+            className={
+              'h-full transition-all duration-500 ease-out ' +
+              (esOperaciones ? 'bg-indigo-500' : 'bg-emerald-500')
+            }
+            style={{ width: `${progreso}%` }}
+          />
         </div>
       </header>
 
-      {/* ── Contenido de preguntas ── */}
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        {/* Indicaciones de sección */}
-        <div className="mb-8 rounded-xl bg-indigo-50 border border-indigo-100 p-5">
-          <p className="text-sm text-indigo-800">
-            {seccionActual === SECCIONES.OPERACIONES
-              ? 'Resuelve las siguientes operaciones aritméticas. Selecciona la respuesta correcta para cada una. El tiempo límite es de 6 minutos.'
-              : 'Resuelve los siguientes problemas numéricos. Selecciona la respuesta correcta para cada uno. El tiempo límite es de 6 minutos.'}
-          </p>
-        </div>
-
-        {/* Lista de preguntas */}
-        <div className="space-y-6">
-          {preguntas.map((pregunta, index) => {
-            const seleccionada = opcionSeleccionada(pregunta.id);
-
-            return (
-              <div
-                key={pregunta.id}
-                className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-900/5 transition hover:shadow-md"
-              >
-                {/* Encabezado de la pregunta */}
-                <div className="mb-4 flex items-start gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
-                    {index + 1}
+      {/* ── Contenido: una pregunta a la vez ── */}
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        <AnimatePresence mode="wait">
+          {preguntaActual && (
+            <motion.div
+              key={`${fase}-${preguntaActual.id}`}
+              initial={{ x: 80, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -80, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+            >
+              {/* Tarjeta de la pregunta */}
+              <div className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-900/5 sm:p-8">
+                {/* Encabezado */}
+                <div className="mb-6 flex items-start gap-4">
+                  <span
+                    className={
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ' +
+                      (esOperaciones ? 'bg-indigo-600' : 'bg-emerald-600')
+                    }
+                  >
+                    {preguntaActualIndex + 1}
                   </span>
-                  <p className="text-sm font-medium leading-relaxed text-slate-800 sm:text-base">
-                    {pregunta.enunciado}
+                  <p className="pt-1.5 text-base font-medium leading-relaxed text-slate-800 sm:text-lg">
+                    {preguntaActual.enunciado}
                   </p>
                 </div>
 
-                {/* Opciones de respuesta */}
-                <div className="ml-11 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {pregunta.opciones.map((opcion) => {
-                    const isSelected = seleccionada === opcion.id;
+                {/* Opciones */}
+                <div className="space-y-3 pl-0 sm:pl-14">
+                  {preguntaActual.opciones.map((opcion) => {
+                    const isSelected = seleccionActual === opcion.id;
 
                     return (
                       <button
                         key={opcion.id}
                         type="button"
-                        onClick={() => seleccionarOpcion(pregunta.id, opcion.id)}
+                        onClick={() => setSeleccionActual(opcion.id)}
                         className={
-                          'flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition ' +
+                          'flex w-full items-center gap-4 rounded-xl border-2 px-5 py-4 text-left text-sm transition-all duration-200 sm:text-base ' +
                           (isSelected
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-500/30 font-semibold'
-                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/50')
+                            ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md shadow-blue-100'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/40')
                         }
                       >
-                        {/* Indicador visual (radio) */}
+                        {/* Indicador radio visual */}
                         <span
                           className={
-                            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ' +
+                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200 ' +
                             (isSelected
-                              ? 'border-indigo-600 bg-indigo-600'
+                              ? 'border-blue-600 bg-blue-600'
                               : 'border-slate-300 bg-white')
                           }
                         >
-                          {isSelected && (
-                            <span className="h-2 w-2 rounded-full bg-white" />
-                          )}
+                          {isSelected && <span className="h-2.5 w-2.5 rounded-full bg-white" />}
                         </span>
 
-                        {/* Literal + texto */}
                         <span>
-                          <span className="mr-1.5 font-bold">{opcion.literal})</span>
+                          <span className="mr-2 font-bold">{opcion.literal})</span>
                           {opcion.textoOpcion}
                         </span>
                       </button>
@@ -389,26 +594,28 @@ export default function TestPage() {
                   })}
                 </div>
               </div>
-            );
-          })}
-        </div>
 
-        {/* ── Botón de finalizar sección ── */}
-        <div className="mt-10 text-center">
-          <button
-            type="button"
-            onClick={avanzarSeccion}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-8 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-md transition hover:bg-indigo-700 hover:shadow-lg active:scale-[0.98]"
-          >
-            {seccionActual === SECCIONES.OPERACIONES
-              ? 'Finalizar Sección — Ir a Problemas'
-              : 'Finalizar Prueba — Enviar Respuestas'}
-
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </button>
-        </div>
+              {/* Botón Siguiente / Finalizar Sección */}
+              <div className="mt-8 text-center">
+                <button
+                  type="button"
+                  onClick={handleSiguiente}
+                  className={
+                    'inline-flex items-center gap-2 rounded-xl px-10 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:shadow-xl active:scale-[0.97] ' +
+                    (esOperaciones
+                      ? 'bg-indigo-600 hover:bg-indigo-700'
+                      : 'bg-emerald-600 hover:bg-emerald-700')
+                  }
+                >
+                  {esUltimaPregunta ? 'Finalizar Sección' : 'Siguiente'}
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
