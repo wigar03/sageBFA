@@ -16,6 +16,14 @@ public class EvaluacionRequestDTO {
     private String nivelEstudio;    // PRIMARIA, SECUNDARIA, etc.
     private Boolean aceptoConsentimientoInformado;
 
+    // Nuevos campos demográficos
+    private String cedula;
+    private int edad;
+    private String telefono;
+    private String departamento;
+    private String municipio;
+    private String tipoColegio;
+
     // Listado de Respuestas
     private List<RespuestaRequestDTO> respuestas;
 }

@@ -44,6 +44,12 @@ public class EvaluacionService {
             candidato.setSexo(Sexo.valueOf(request.getSexo().toUpperCase()));
             candidato.setNivelEstudio(NivelEstudio.valueOf(request.getNivelEstudio().toUpperCase()));
             candidato.setAceptoConsentimientoInformado(request.getAceptoConsentimientoInformado());
+            candidato.setCedula(request.getCedula());
+            candidato.setEdad(request.getEdad());
+            candidato.setTelefono(request.getTelefono());
+            candidato.setDepartamento(request.getDepartamento());
+            candidato.setMunicipio(request.getMunicipio());
+            candidato.setTipoColegio(request.getTipoColegio());
 
             if (candidato.getId() == null) {
                 em.persist(candidato);

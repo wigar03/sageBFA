@@ -16,6 +16,32 @@ const SEXOS = [
   { value: 'FEMENINO', label: 'Femenino' },
 ];
 
+const UBICACIONES_NICARAGUA = {
+  'Boaco': ['Boaco', 'Camoapa', 'San José de los Remates', 'San Lorenzo', 'Santa Lucía', 'Teustepe'],
+  'Carazo': ['Diriamba', 'Jinotepe', 'San Marcos', 'Dolores', 'El Rosario', 'La Conquista', 'La Paz de Oriente', 'Santa Teresa'],
+  'Chinandega': ['Chinandega', 'El Realejo', 'Corinto', 'Chichigalpa', 'Posoltega', 'El Viejo', 'Puerto Morazán', 'Somotillo', 'Villa Nueva', 'Santo Tomás del Norte', 'Cinco Pinos', 'San Pedro del Norte', 'San Francisco del Norte'],
+  'Chontales': ['Juigalpa', 'Acoyapa', 'Santo Tomás', 'Villa Sandino', 'La Libertad', 'Santo Domingo', 'San Pedro de Lóvago', 'El Coral', 'San Francisco de Cuapa'],
+  'Estelí': ['Estelí', 'Condega', 'Pueblo Nuevo', 'San Juan de Limay', 'La Trinidad', 'San Nicolás'],
+  'Granada': ['Granada', 'Nandaime', 'Diriomo', 'Diriá'],
+  'Jinotega': ['Jinotega', 'San Rafael del Norte', 'San Sebastián de Yalí', 'La Concordia', 'San José de Bocay', 'El Cuá', 'Santa María de Pantasma', 'Wiwilí de Jinotega'],
+  'León': ['León', 'Nagarote', 'La Paz Centro', 'El Sauce', 'Achuapa', 'Santa Rosa del Peñón', 'El Jicaral', 'Larreynaga (Malpaisillo)', 'Quezalguaque', 'Telica'],
+  'Madriz': ['Somoto', 'Totogalpa', 'San Lucas', 'Las Sabanas', 'Yalagüina', 'Palacagüina', 'Telpaneca', 'San Juan de Río Coco', 'San José de Cusmapa'],
+  'Managua': ['Managua', 'Ciudad Sandino', 'Tipitapa', 'El Crucero', 'San Francisco del Libre', 'San Rafael del Sur', 'Villa El Carmen', 'Mateare', 'Ticuantepe'],
+  'Masaya': ['Masaya', 'Nindirí', 'La Concepción', 'Masatepe', 'Nandasmo', 'Catarina', 'San Juan de Oriente', 'Niquinohomo', 'Tisma'],
+  'Matagalpa': ['Matagalpa', 'Sébaco', 'Ciudad Darío', 'San Ramón', 'Muy Muy', 'Esquipulas', 'Matiguás', 'Río Blanco', 'El Tuma - La Dalia', 'Rancho Grande', 'San Isidro', 'Terrabona'],
+  'Nueva Segovia': ['Ocotal', 'Mozonte', 'Dipilto', 'Ciudad Antigua', 'San Fernando', 'Macuelizo', 'Santa María', 'Jalapa', 'El Jícaro', 'Murra', 'Quilalí', 'Wiwilí de Nueva Segovia'],
+  'Río San Juan': ['San Carlos', 'Morrito', 'El Almendro', 'San Miguelito', 'El Castillo', 'San Juan del Norte'],
+  'Rivas': ['Rivas', 'San Jorge', 'Buenos Aires', 'Potosí', 'Belén', 'Tola', 'San Juan del Sur', 'Cárdenas', 'Altagracia', 'Moyogalpa'],
+  'Costa Caribe Norte (RACCN)': ['Bilwi (Puerto Cabezas)', 'Waspam', 'Rosita', 'Bonanza', 'Siuna', 'Prinzapolka', 'Mulukukú', 'Waslala'],
+  'Costa Caribe Sur (RACCS)': ['Bluefields', 'El Rama', 'Muelle de los Bueyes', 'Nueva Guinea', 'Corn Island', 'El Tortuguero', 'Desembocadura de Río Grande', 'Laguna de Perlas', 'Kukra Hill', 'La Cruz de Río Grande']
+};
+
+const TIPOS_COLEGIO = [
+  { value: '', label: 'Selecciona tipo de colegio' },
+  { value: 'PUBLICO', label: 'Público' },
+  { value: 'PRIVADO', label: 'Privado' }
+];
+
 export default function WelcomePage() {
   const navigate = useNavigate();
 
@@ -26,8 +52,16 @@ export default function WelcomePage() {
     sexo: '',
     nivelEstudio: '',
     fechaNacimiento: '',
+    cedula: '',
+    edad: '',
+    telefono: '',
+    departamento: '',
+    municipio: '',
+    tipoColegio: '',
     aceptoConsentimiento: false,
   });
+
+  const isCedulaValid = /^\d{3}-\d{6}-\d{4}[A-Z]$/.test(form.cedula);
 
   const isFormValid =
     form.nombres.trim() !== '' &&
@@ -36,6 +70,13 @@ export default function WelcomePage() {
     form.sexo !== '' &&
     form.nivelEstudio !== '' &&
     form.fechaNacimiento !== '' &&
+    isCedulaValid &&
+    form.edad.toString().trim() !== '' &&
+    Number(form.edad) > 0 &&
+    form.telefono.trim() !== '' &&
+    form.departamento !== '' &&
+    form.municipio !== '' &&
+    form.tipoColegio !== '' &&
     form.aceptoConsentimiento;
 
   function handleChange(e) {
@@ -43,6 +84,41 @@ export default function WelcomePage() {
     setForm((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
+    }));
+  }
+
+  function handleDepartamentoChange(e) {
+    const dep = e.target.value;
+    setForm((prev) => ({
+      ...prev,
+      departamento: dep,
+      municipio: '', // Reiniciar municipio al cambiar departamento
+    }));
+  }
+
+  function handleCedulaChange(e) {
+    let raw = e.target.value.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+    if (raw.length > 14) {
+      raw = raw.substring(0, 14);
+    }
+    
+    let formatted = '';
+    if (raw.length > 0) {
+      formatted += raw.substring(0, Math.min(raw.length, 3));
+    }
+    if (raw.length > 3) {
+      formatted += '-' + raw.substring(3, Math.min(raw.length, 9));
+    }
+    if (raw.length > 9) {
+      formatted += '-' + raw.substring(9, Math.min(raw.length, 13));
+    }
+    if (raw.length > 13) {
+      formatted += raw.substring(13, 14);
+    }
+    
+    setForm((prev) => ({
+      ...prev,
+      cedula: formatted,
     }));
   }
 
@@ -57,12 +133,20 @@ export default function WelcomePage() {
       sexo: form.sexo,
       nivelEstudio: form.nivelEstudio,
       fechaNacimiento: form.fechaNacimiento,
+      cedula: form.cedula,
+      edad: Number(form.edad),
+      telefono: form.telefono.trim(),
+      departamento: form.departamento,
+      municipio: form.municipio,
+      tipoColegio: form.tipoColegio,
       aceptoConsentimientoInformado: form.aceptoConsentimiento,
     };
 
     localStorage.setItem('candidato_actual', JSON.stringify(candidato));
     navigate('/test');
   }
+
+  const municipiosDisponibles = form.departamento ? UBICACIONES_NICARAGUA[form.departamento] : [];
 
   /* ── Estilos reutilizables ── */
   const inputClass =
@@ -145,20 +229,76 @@ export default function WelcomePage() {
             />
           </div>
 
-          {/* Fecha de Nacimiento */}
-          <div className="mb-4">
-            <label htmlFor="fechaNacimiento" className={labelClass}>
-              Fecha de Nacimiento
-            </label>
-            <input
-              id="fechaNacimiento"
-              name="fechaNacimiento"
-              type="date"
-              value={form.fechaNacimiento}
-              onChange={handleChange}
-              className={inputClass}
-              required
-            />
+          {/* Cédula y Teléfono — Fila de 2 columnas */}
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="cedula" className={labelClass}>
+                Cédula de Identidad
+              </label>
+              <input
+                id="cedula"
+                name="cedula"
+                type="text"
+                placeholder="001-010190-0001A"
+                value={form.cedula}
+                onChange={handleCedulaChange}
+                className={inputClass}
+                maxLength={16}
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="telefono" className={labelClass}>
+                Teléfono
+              </label>
+              <input
+                id="telefono"
+                name="telefono"
+                type="tel"
+                placeholder="Ej. +505 8888-8888"
+                value={form.telefono}
+                onChange={handleChange}
+                className={inputClass}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Fecha de Nacimiento y Edad — Fila de 2 columnas */}
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="fechaNacimiento" className={labelClass}>
+                Fecha de Nacimiento
+              </label>
+              <input
+                id="fechaNacimiento"
+                name="fechaNacimiento"
+                type="date"
+                value={form.fechaNacimiento}
+                onChange={handleChange}
+                className={inputClass}
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edad" className={labelClass}>
+                Edad
+              </label>
+              <input
+                id="edad"
+                name="edad"
+                type="number"
+                min="1"
+                max="120"
+                placeholder="Ej. 18"
+                value={form.edad}
+                onChange={handleChange}
+                className={inputClass}
+                required
+              />
+            </div>
           </div>
 
           {/* Sexo y Nivel de Estudio — Fila de 2 columnas */}
@@ -198,6 +338,73 @@ export default function WelcomePage() {
                 {NIVELES_ESTUDIO.map((n) => (
                   <option key={n.value} value={n.value} disabled={n.value === ''}>
                     {n.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Tipo de Colegio */}
+          <div className="mb-4">
+            <label htmlFor="tipoColegio" className={labelClass}>
+              Tipo de Colegio
+            </label>
+            <select
+              id="tipoColegio"
+              name="tipoColegio"
+              value={form.tipoColegio}
+              onChange={handleChange}
+              className={inputClass}
+              required
+            >
+              {TIPOS_COLEGIO.map((c) => (
+                <option key={c.value} value={c.value} disabled={c.value === ''}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Departamento y Municipio — Fila de 2 columnas */}
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="departamento" className={labelClass}>
+                Departamento / Región
+              </label>
+              <select
+                id="departamento"
+                name="departamento"
+                value={form.departamento}
+                onChange={handleDepartamentoChange}
+                className={inputClass}
+                required
+              >
+                <option value="" disabled>Selecciona departamento</option>
+                {Object.keys(UBICACIONES_NICARAGUA).map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="municipio" className={labelClass}>
+                Municipio
+              </label>
+              <select
+                id="municipio"
+                name="municipio"
+                value={form.municipio}
+                onChange={handleChange}
+                className={inputClass}
+                disabled={!form.departamento}
+                required
+              >
+                <option value="" disabled>Selecciona municipio</option>
+                {municipiosDisponibles.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
                   </option>
                 ))}
               </select>

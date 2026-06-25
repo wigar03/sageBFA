@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.*;
 
 import javax.persistence.*;
+import javax.persistence.Transient;
 
 import org.openxava.annotations.*;
 
@@ -28,11 +29,14 @@ import lombok.*;
 @Entity
 @DiscriminatorValue("CANDIDATO")
 @Getter @Setter
-@Tab(properties = "correo, nombres, apellidos, fechaNacimiento, sexo, nivelEstudio, aceptoConsentimientoInformado")
+@Tab(properties = "nombreCompleto, cedula, edad, departamento, puntuacionFinal, percentil, diagnostico")
 @View(members = ""
     + "Datos Personales {"
-    + "  nombres; apellidos; correo;"
-    + "  fechaNacimiento; sexo; nivelEstudio"
+    + "  nombres; apellidos; correo; cedula; edad; telefono;"
+    + "  fechaNacimiento; sexo; nivelEstudio; departamento; municipio; tipoColegio"
+    + "}"
+    + "Resultados de la Evaluación {"
+    + "  puntuacionFinal; percentil; diagnostico"
     + "}"
     + "Consentimiento {"
     + "  aceptoConsentimientoInformado"
@@ -42,6 +46,30 @@ import lombok.*;
     + "}"
 )
 public class Candidato extends Usuario {
+
+    @Column(nullable = false, length = 16)
+    @Required
+    private String cedula;
+
+    @Column(nullable = false)
+    @Required
+    private int edad;
+
+    @Column(nullable = false, length = 20)
+    @Required
+    private String telefono;
+
+    @Column(nullable = false, length = 100)
+    @Required
+    private String departamento;
+
+    @Column(nullable = false, length = 100)
+    @Required
+    private String municipio;
+
+    @Column(nullable = false, length = 20)
+    @Required
+    private String tipoColegio;
 
     @Column(nullable = false)
     @Required
@@ -74,6 +102,67 @@ public class Candidato extends Usuario {
     @ListProperties("pregunta.enunciado, opcionElegida.literal, tiempoSegundos")
     @OrderBy("id ASC")
     private List<RespuestaCandidato> respuestas = new ArrayList<>();
+
+    // ──────────────────────────────────────────────
+    //  Propiedades calculadas no persistidas
+    // ──────────────────────────────────────────────
+
+    @Transient
+    public String getNombreCompleto() {
+        return getNombres() + " " + getApellidos();
+    }
+
+    @Transient
+    public Integer getPuntuacionFinal() {
+        if (respuestas == null || respuestas.isEmpty()) return 0;
+        int aciertos = 0;
+        for (RespuestaCandidato r : respuestas) {
+            if (r.getOpcionElegida() != null && Boolean.TRUE.equals(r.getOpcionElegida().getEsCorrecta())) {
+                aciertos++;
+            }
+        }
+        return aciertos;
+    }
+
+    @Transient
+    public int getPercentil() {
+        int score = getPuntuacionFinal();
+        switch (score) {
+            case 0: return 5;
+            case 1: return 10;
+            case 2: return 20;
+            case 3: return 35;
+            case 4: return 45;
+            case 5: return 60;
+            case 6: return 75;
+            case 7: return 85;
+            case 8: return 90;
+            case 9:
+            case 10: return 95;
+            case 11:
+            case 12: return 97;
+            default: return 99;
+        }
+    }
+
+    @Transient
+    public String getDiagnostico() {
+        int score = getPuntuacionFinal();
+        switch (score) {
+            case 0: return "Deficiente";
+            case 1:
+            case 2: return "Inferior";
+            case 3: return "Medio Bajo";
+            case 4: return "Medio";
+            case 5: return "Medio Alto";
+            case 6:
+            case 7: return "Superior";
+            case 8:
+            case 9:
+            case 10: return "Muy Superior";
+            default: return "Excelente";
+        }
+    }
 
     // ──────────────────────────────────────────────
     //  Métodos de conveniencia
