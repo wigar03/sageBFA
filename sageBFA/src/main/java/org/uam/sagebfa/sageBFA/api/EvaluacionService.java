@@ -76,15 +76,17 @@ public class EvaluacionService {
                     }
 
                     OpcionRespuesta opcion = null;
-                    if (respDto.getOpcionElegidaId() != null) {
-                        opcion = em.find(OpcionRespuesta.class, respDto.getOpcionElegidaId());
+                    Long opcionId = respDto.getOpcionElegidaId();
+                    // Defensa: solo buscar en la base de datos si el ID no es nulo y es mayor que cero
+                    if (opcionId != null && opcionId > 0) {
+                        opcion = em.find(OpcionRespuesta.class, opcionId);
                     }
 
                     RespuestaCandidato respuesta = new RespuestaCandidato();
                     respuesta.setCandidato(candidato);
                     respuesta.setPregunta(pregunta);
                     respuesta.setOpcionElegida(opcion);
-                    respuesta.setTiempoSegundos(respDto.getTiempoSegundos());
+                    respuesta.setTiempoSegundos(respDto.getTiempoSegundos() != null ? respDto.getTiempoSegundos() : 0);
                     em.persist(respuesta);
 
                     // Regla de calificación: Solo suma si la opción elegida es correcta
