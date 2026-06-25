@@ -17,6 +17,10 @@ import org.openxava.jpa.XPersistence;
 import org.uam.sagebfa.sageBFA.api.dto.*;
 import org.uam.sagebfa.sageBFA.model.*;
 
+// Imports de OpenPDF para reportes clínicos
+import com.lowagie.text.*;
+import com.lowagie.text.pdf.*;
+
 @WebServlet(urlPatterns = "/api/test-numerico/*")
 public class TestNumericoServlet extends HttpServlet {
 
@@ -34,7 +38,14 @@ public class TestNumericoServlet extends HttpServlet {
         setCorsHeaders(resp);
         
         String pathInfo = req.getPathInfo();
-        // El GET solo se permite en la raíz del recurso /api/test-numerico
+        
+        // Enrutar la descarga del reporte clínico PDF
+        if (pathInfo != null && ("/reporte".equals(pathInfo) || "/reporte/".equals(pathInfo))) {
+            generateReporteClinico(req, resp);
+            return;
+        }
+        
+        // El GET de preguntas solo se permite en la raíz del recurso /api/test-numerico
         if (pathInfo != null && !"/".equals(pathInfo) && !"".equals(pathInfo)) {
             resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
             resp.getWriter().write("{\"error\": \"Recurso no encontrado\"}");
@@ -142,6 +153,162 @@ public class TestNumericoServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             resp.setContentType("application/json;charset=UTF-8");
             resp.getWriter().write("{\"error\": \"Error al procesar la evaluación: " + e.getMessage() + "\"}");
+        }
+    }
+
+    private void generateReporteClinico(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String idStr = req.getParameter("id");
+        if (idStr == null || idStr.trim().isEmpty()) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().write("{\"error\": \"Falta el ID del candidato\"}");
+            return;
+        }
+
+        Long candidatoId;
+        try {
+            candidatoId = Long.parseLong(idStr);
+        } catch (NumberFormatException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            resp.getWriter().write("{\"error\": \"ID de candidato inválido\"}");
+            return;
+        }
+
+        EntityManager em = XPersistence.getManager();
+        try {
+            Candidato candidato = em.find(Candidato.class, candidatoId);
+            if (candidato == null) {
+                resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                resp.getWriter().write("{\"error\": \"Candidato no encontrado\"}");
+                return;
+            }
+
+            // Generar PDF usando OpenPDF
+            resp.setContentType("application/pdf");
+            resp.setHeader("Content-Disposition", "inline; filename=\"reporte_clinico_" + candidato.getCedula() + ".pdf\"");
+
+            Document document = new Document(PageSize.LETTER, 36, 36, 54, 36);
+            PdfWriter.getInstance(document, resp.getOutputStream());
+
+            document.open();
+
+            // 0. Logo de la Universidad Americana (UAM)
+            try {
+                java.net.URL logoUrl = getServletContext().getResource("/images/logo_uam.png");
+                if (logoUrl != null) {
+                    Image logo = Image.getInstance(logoUrl);
+                    logo.scaleToFit(120, 120);
+                    logo.setAlignment(Element.ALIGN_CENTER);
+                    logo.setSpacingAfter(15);
+                    document.add(logo);
+                } else {
+                    System.out.println("[Advertencia] No se encontró el logo de la UAM en /images/logo_uam.png");
+                }
+            } catch (Exception e) {
+                System.err.println("[Error] Fallo al intentar cargar e incrustar el logo en el PDF: " + e.getMessage());
+            }
+
+            // 1. Título
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
+            Paragraph title = new Paragraph("REPORTE PSICOMÉTRICO - BATERÍA FACTORIAL DE APTITUDES (B.F.A.)", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            title.setSpacingAfter(5);
+            document.add(title);
+
+            // 2. Subtítulo
+            Font subTitleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+            Paragraph subtitle = new Paragraph("Área Numérica - Factor N2", subTitleFont);
+            subtitle.setAlignment(Element.ALIGN_CENTER);
+            subtitle.setSpacingAfter(25);
+            document.add(subtitle);
+
+            // 3. Datos Demográficos
+            Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+            Paragraph sectionDemo = new Paragraph("1. Datos Demográficos del Candidato", sectionFont);
+            sectionDemo.setSpacingAfter(10);
+            document.add(sectionDemo);
+
+            Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
+            
+            PdfPTable demoTable = new PdfPTable(2);
+            demoTable.setWidthPercentage(100);
+            demoTable.setSpacingAfter(20);
+            
+            demoTable.addCell(new Phrase("Nombre Completo:", bodyFont));
+            demoTable.addCell(new Phrase(candidato.getNombreCompleto(), bodyFont));
+            
+            demoTable.addCell(new Phrase("Cédula de Identidad:", bodyFont));
+            demoTable.addCell(new Phrase(candidato.getCedula(), bodyFont));
+            
+            demoTable.addCell(new Phrase("Edad:", bodyFont));
+            demoTable.addCell(new Phrase(String.valueOf(candidato.getEdad()) + " años", bodyFont));
+            
+            demoTable.addCell(new Phrase("Departamento:", bodyFont));
+            demoTable.addCell(new Phrase(candidato.getDepartamento(), bodyFont));
+            
+            demoTable.addCell(new Phrase("Municipio:", bodyFont));
+            demoTable.addCell(new Phrase(candidato.getMunicipio(), bodyFont));
+            
+            demoTable.addCell(new Phrase("Tipo de Colegio:", bodyFont));
+            demoTable.addCell(new Phrase(candidato.getTipoColegio(), bodyFont));
+            
+            document.add(demoTable);
+
+            // 4. Resultados
+            Paragraph sectionResult = new Paragraph("2. Resultados de la Prueba", sectionFont);
+            sectionResult.setSpacingAfter(10);
+            document.add(sectionResult);
+
+            PdfPTable resultTable = new PdfPTable(3);
+            resultTable.setWidthPercentage(100);
+            resultTable.setSpacingAfter(20);
+
+            resultTable.addCell(new Phrase("Puntuación Final (Aciertos)", sectionFont));
+            resultTable.addCell(new Phrase("Percentil", sectionFont));
+            resultTable.addCell(new Phrase("Diagnóstico Clínico", sectionFont));
+
+            resultTable.addCell(new Phrase(String.valueOf(candidato.getPuntuacionFinal()) + " / 20", bodyFont));
+            resultTable.addCell(new Phrase(String.valueOf(candidato.getPercentil()), bodyFont));
+            resultTable.addCell(new Phrase(candidato.getDiagnostico(), bodyFont));
+
+            document.add(resultTable);
+
+            // 5. Interpretación Clínica
+            Paragraph sectionInterpret = new Paragraph("3. Interpretación Diagnóstica", sectionFont);
+            sectionInterpret.setSpacingAfter(10);
+            document.add(sectionInterpret);
+
+            String diagnostico = candidato.getDiagnostico();
+            String interpretacionText = "";
+            if ("Deficiente".equals(diagnostico) || "Inferior".equals(diagnostico) || "Medio Bajo".equals(diagnostico)) {
+                interpretacionText = "El candidato presenta un rendimiento en el Factor N2 que se sitúa por debajo del promedio esperado. Este déficit en aptitudes numéricas puede ser la resultante de una integración insuficiente de los aprendizajes elementales, o bien derivar de posibles inhibiciones psicopedagógicas frente a los sistemas de numeración y trastornos del ritmo, según los lineamientos del manual del test. Se recomienda nivelación y apoyo pedagógico enfocado.";
+            } else if ("Medio".equals(diagnostico) || "Medio Alto".equals(diagnostico)) {
+                interpretacionText = "El candidato posee un rendimiento promedio en la manipulación y comprensión del factor numérico, evidenciando un manejo adecuado de esquemas anticipatorios básicos. Esto le faculta para resolver de forma satisfactoria operaciones matemáticas cotidianas, cálculo conceptual básico y problemas de razonamiento aritmético estándar.";
+            } else { // Superior, Muy Superior, Excelente
+                interpretacionText = "El candidato muestra un desempeño sobresaliente en la prueba. Posee una alta aptitud para manipular números rápidamente, precisión excepcional en el cálculo mental y conceptual, y una capacidad superior para el razonamiento matemático y resolución de problemas de alta complejidad. Su perfil cognitivo en el área cuantitativa es sumamente competitivo.";
+            }
+
+            Paragraph interpretParagraph = new Paragraph(interpretacionText, bodyFont);
+            interpretParagraph.setLeading(14);
+            interpretParagraph.setAlignment(Element.ALIGN_JUSTIFIED);
+            document.add(interpretParagraph);
+
+            document.close();
+
+            // Cerrar la transacción de lectura de OpenXava una vez completada la generación del reporte
+            XPersistence.commit();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            XPersistence.rollback();
+            if (!resp.isCommitted()) {
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                resp.setContentType("application/json;charset=UTF-8");
+                try {
+                    resp.getWriter().write("{\"error\": \"Error al generar el reporte: " + e.getMessage() + "\"}");
+                } catch (IllegalStateException ise) {
+                    resp.getOutputStream().write(("{\"error\": \"Error al generar el reporte: " + e.getMessage() + "\"}").getBytes());
+                }
+            }
         }
     }
 

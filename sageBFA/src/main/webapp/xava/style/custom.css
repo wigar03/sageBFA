@@ -1,3 +1,31 @@
 /*
 Put here your own style
 */
+
+button[name*="generarReporteClinico"],
+button[id*="generarReporteClinico"],
+a[name*="generarReporteClinico"],
+a[id*="generarReporteClinico"],
+input[type="button"][name*="generarReporteClinico"],
+[data-action*="generarReporteClinico"] {
+    background-color: #2e7d32 !important; /* Green color (material style) */
+    border-color: #1b5e20 !important;
+    color: #ffffff !important;
+    font-weight: bold !important;
+    padding: 6px 12px !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+button[name*="generarReporteClinico"]:hover,
+button[id*="generarReporteClinico"]:hover,
+a[name*="generarReporteClinico"]:hover,
+a[id*="generarReporteClinico"]:hover,
+input[type="button"][name*="generarReporteClinico"]:hover,
+[data-action*="generarReporteClinico"]:hover {
+    background-color: #1b5e20 !important; /* Darker green on hover */
+    border-color: #0d3c12 !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+    transform: translateY(-1px) !important;
+}

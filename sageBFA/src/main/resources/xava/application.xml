@@ -22,7 +22,7 @@
 
     <module name="Candidato">
         <model name="Candidato"/>
-        <controller name="Typical"/>
+        <controller name="Candidato"/>
     </module>
 
     <module name="TestNumerico">

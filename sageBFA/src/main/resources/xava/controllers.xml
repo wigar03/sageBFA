@@ -13,6 +13,16 @@
     	    scope="global"/>    
     -->
     
+    <controller name="Candidato">
+        <extends controller="Typical"/>
+        <action name="generarReporteClinico" 
+                label="Generar Reporte Clinico"
+                icon="printer" 
+                class="org.uam.sagebfa.sageBFA.actions.GenerarReporteClinicoAction"
+                mode="detail">
+        </action>
+    </controller>
+    
     <!-- Controller:
     <controller name="Teacher">
     	<extends controller="Typical"/>

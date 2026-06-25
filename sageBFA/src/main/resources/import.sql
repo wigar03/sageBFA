@@ -122,8 +122,8 @@ INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) 
 -- Pregunta 15 (Q73)
 INSERT INTO Pregunta (id, orden, seccion, enunciado, prueba_id) VALUES (15, 5, 'PROBLEMAS', 'El historiador romano Tito Livio nació en el —59, murió a la edad de 75 años. ¿Cuál es el año de su muerte?', 1);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (57, 'A', '+ 15', false, 15);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (58, 'B', '+ 16', true, 15);
-INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (59, 'C', '+ 17', false, 15);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (58, 'B', '+ 16', false, 15);
+INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (59, 'C', '+ 17', true, 15);
 INSERT INTO OpcionRespuesta (id, literal, textoOpcion, esCorrecta, pregunta_id) VALUES (60, 'D', '+ 18', false, 15);
 
 -- Pregunta 16 (Q74)
