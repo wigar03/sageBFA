@@ -4,6 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import TeX from '@matejmazur/react-katex';
 import api from '../services/api';
 
+// ── Logo UAM ──
+import logoUam from '../assets/logos/logo_uam.png';
+
 // ─────────────────────────────────────────────
 // Constantes de Fases
 // ─────────────────────────────────────────────
@@ -97,6 +100,18 @@ export default function TestPage() {
     fetchTest();
     return () => { cancelado = true; };
   }, []);
+
+  // Al cambiar de pregunta o fase, restaurar la opción previamente seleccionada si existe
+  useEffect(() => {
+    const preguntas = fase === FASES.TEST_OPERACIONES
+      ? testData?.operaciones
+      : testData?.problemas;
+    const pregunta = preguntas?.[preguntaActualIndex];
+    if (pregunta) {
+      const respuestaExistente = respuestasRef.current.find(r => r.preguntaId === pregunta.id);
+      setSeleccionActual(respuestaExistente ? respuestaExistente.opcionElegidaId : null);
+    }
+  }, [preguntaActualIndex, fase, testData]);
 
   // ─────────────────────────────────────────────
   // Helpers
@@ -332,14 +347,21 @@ export default function TestPage() {
   }
 
   // ─────────────────────────────────────────────
-  // Botón Siguiente / Finalizar Sección
+  // Botón Anterior / Siguiente / Finalizar Sección
   // ─────────────────────────────────────────────
+  function handleAnterior() {
+    registrarRespuestaActual();
+
+    if (preguntaActualIndex > 0) {
+      setPreguntaActualIndex(prev => prev - 1);
+    }
+  }
+
   function handleSiguiente() {
     registrarRespuestaActual();
 
     if (!esUltimaPregunta) {
       setPreguntaActualIndex(prev => prev + 1);
-      setSeleccionActual(null);
     } else {
       if (fase === FASES.TEST_OPERACIONES) {
         if (intervaloRef.current) {
@@ -348,7 +370,6 @@ export default function TestPage() {
         }
         setTiempoRestante(null);
         setPreguntaActualIndex(0);
-        setSeleccionActual(null);
         setFase(FASES.INSTRUCCIONES_PROBLEMAS);
       } else {
         if (intervaloRef.current) {
@@ -367,20 +388,20 @@ export default function TestPage() {
   // ─────────────────────────────────────────────
   if (isTestInvalidated) {
     return (
-      <div className="fixed inset-0 z-50 bg-gray-900 text-white flex flex-col items-center justify-center text-center p-8">
-        <div className="max-w-md rounded-2xl bg-gray-800/60 p-8 border border-red-500/30 shadow-2xl backdrop-blur-md">
-          {/* Icono de X roja grande */}
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-950 text-red-500 border border-red-500/50 shadow-lg shadow-red-950/50">
+      <div className="fixed inset-0 z-50 bg-amber-50 text-slate-800 flex flex-col items-center justify-center text-center p-8">
+        <div className="max-w-md rounded-2xl bg-white p-8 border border-amber-200 shadow-2xl">
+          {/* Icono de advertencia ámbar grande */}
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-amber-600 border border-amber-300 shadow-lg shadow-amber-100">
             <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-red-500">¡PRUEBA INVALIDADA!</h2>
-          <p className="mb-6 text-sm text-gray-300 leading-relaxed">
+          <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-amber-700">¡PRUEBA ANULADA!</h2>
+          <p className="mb-6 text-sm text-slate-600 leading-relaxed">
             El tiempo límite para regresar a la pantalla completa ha expirado. Por motivos de seguridad y para garantizar la integridad de los resultados, esta sesión ha sido anulada.
           </p>
-          <div className="rounded-xl bg-gray-950/60 p-4 border border-gray-700/50">
-            <p className="text-sm font-bold text-yellow-500 uppercase tracking-wide animate-pulse">
+          <div className="rounded-xl bg-amber-50/50 p-4 border border-amber-200">
+            <p className="text-sm font-bold text-amber-800 uppercase tracking-wide">
               Por favor, permanezca en su lugar y llame inmediatamente al psicólogo evaluador.
             </p>
           </div>
@@ -396,7 +417,7 @@ export default function TestPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+          <div className="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-4 border-uam-celeste/20 border-t-uam-celeste" />
           <p className="text-sm font-medium text-slate-500">Cargando preguntas del test…</p>
         </div>
       </div>
@@ -419,7 +440,7 @@ export default function TestPage() {
           <p className="mb-6 text-sm text-slate-500">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow hover:bg-indigo-700 transition"
+            className="rounded-lg bg-uam-celeste px-6 py-2.5 text-sm font-semibold text-white shadow hover:bg-uam-celeste-dark transition"
           >
             Reintentar
           </button>
@@ -435,7 +456,7 @@ export default function TestPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+          <div className="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-4 border-uam-celeste/20 border-t-uam-celeste" />
           <p className="text-sm font-medium text-slate-500">Enviando evaluación…</p>
         </div>
       </div>
@@ -447,26 +468,26 @@ export default function TestPage() {
   // ─────────────────────────────────────────────
   if (isFullscreenViolated) {
     return (
-      <div className="fixed inset-0 z-50 bg-red-950 text-white flex flex-col items-center justify-center text-center p-8">
-        <div className="max-w-md rounded-2xl bg-red-900/60 p-8 border border-red-500/30 shadow-2xl backdrop-blur-md">
+      <div className="fixed inset-0 z-50 bg-amber-50 text-slate-800 flex flex-col items-center justify-center text-center p-8">
+        <div className="max-w-md rounded-2xl bg-white p-8 border border-amber-400/80 shadow-2xl">
           {/* Icono de advertencia */}
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-800 text-red-200 animate-bounce">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-600 animate-bounce border border-amber-300">
             <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="mb-4 text-2xl font-extrabold tracking-tight">¡Atención! Has salido de pantalla completa</h2>
-          <p className="mb-6 text-sm text-red-200 leading-relaxed">
+          <h2 className="mb-4 text-2xl font-extrabold tracking-tight text-amber-800">¡Atención! Has salido de pantalla completa</h2>
+          <p className="mb-6 text-sm text-slate-600 leading-relaxed">
             Para garantizar la integridad de la evaluación, es obligatorio permanecer en modo pantalla completa. 
             Por favor presione <strong>F11</strong> o el botón de abajo para volver al examen.
           </p>
-          <p className="mb-8 text-lg font-bold text-red-300 animate-pulse">
-            La prueba se anulará automáticamente en: <span className="font-mono text-2xl text-white font-extrabold">{violationCountdown}</span> segundos
+          <p className="mb-8 text-lg font-bold text-amber-700 animate-pulse">
+            La prueba se anulará automáticamente en: <span className="font-mono text-2xl text-amber-900 font-extrabold">{violationCountdown}</span> segundos
           </p>
           <button
             type="button"
             onClick={entrarPantallaCompleta}
-            className="w-full rounded-xl bg-white px-6 py-4 text-sm font-bold uppercase tracking-wide text-red-950 shadow-lg transition hover:bg-red-50 hover:shadow-xl active:scale-[0.98]"
+            className="w-full rounded-xl bg-uam-celeste hover:bg-uam-celeste-dark text-white px-6 py-4 text-sm font-bold uppercase tracking-wide shadow-lg transition active:scale-[0.98]"
           >
             REGRESAR AL EXAMEN
           </button>
@@ -484,7 +505,7 @@ export default function TestPage() {
         <div className="w-full max-w-xl">
           <div className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-900/5 sm:p-10">
             <div className="mb-6 flex items-center gap-2">
-              <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-700">
+              <span className="rounded-full bg-uam-celeste/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-uam-celeste-dark">
                 Sección 1 de 2
               </span>
               <span className="text-xs font-medium text-slate-400">Operaciones</span>
@@ -501,9 +522,14 @@ export default function TestPage() {
               encontrar el número que complete la operación.
             </p>
 
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/40 p-4 text-slate-600 text-xs leading-relaxed space-y-1">
+              <p className="font-bold text-amber-800">💡 Consejo de usabilidad:</p>
+              <p>Si no conoces la respuesta, puedes dejarla en blanco y avanzar a la siguiente pregunta. También puedes utilizar el botón <strong>"Anterior"</strong> para regresar y cambiar tus respuestas.</p>
+            </div>
+
             {/* Ejemplo con KaTeX */}
-            <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/60 p-5">
-              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-indigo-500">Ejemplo</p>
+            <div className="mb-6 rounded-xl border border-uam-celeste/20 bg-uam-celeste/5 p-5">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-uam-celeste-dark">Ejemplo</p>
               <div className="mb-4 text-center">
                 <TeX block math={"3 + \\Box = 8"} />
               </div>
@@ -538,7 +564,7 @@ export default function TestPage() {
 
             <button
               onClick={iniciarOperaciones}
-              className="w-full rounded-lg bg-indigo-600 px-6 py-3.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-indigo-700 hover:shadow-xl active:scale-[0.98]"
+              className="w-full rounded-lg bg-uam-celeste px-6 py-3.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-uam-celeste-dark hover:shadow-xl active:scale-[0.98]"
             >
               Comenzar Operaciones
             </button>
@@ -557,7 +583,7 @@ export default function TestPage() {
         <div className="w-full max-w-xl">
           <div className="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-900/5 sm:p-10">
             <div className="mb-6 flex items-center gap-2">
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-700">
+              <span className="rounded-full bg-uam-naranja/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-uam-naranja">
                 Sección 2 de 2
               </span>
               <span className="text-xs font-medium text-slate-400">Problemas</span>
@@ -568,13 +594,18 @@ export default function TestPage() {
             </h2>
 
             <p className="mb-6 leading-relaxed text-slate-600 text-sm sm:text-base">
-              En cada ejercicio hay un problema aritmético y cuatro posibles soluciones.
+              En cada ejercicio hay un problemático aritmético y cuatro posibles soluciones.
               Existe una sola respuesta correcta.
             </p>
 
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/40 p-4 text-slate-600 text-xs leading-relaxed space-y-1">
+              <p className="font-bold text-amber-800">💡 Consejo de usabilidad:</p>
+              <p>Si no conoces la respuesta, puedes dejarla en blanco y avanzar a la siguiente pregunta. También puedes utilizar el botón <strong>"Anterior"</strong> para regresar y cambiar tus respuestas.</p>
+            </div>
+
             {/* Ejemplo */}
-            <div className="mb-6 rounded-xl border border-emerald-100 bg-emerald-50/60 p-5">
-              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-emerald-500">Ejemplo</p>
+            <div className="mb-6 rounded-xl border border-uam-naranja/20 bg-uam-naranja/5 p-5">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-uam-naranja">Ejemplo</p>
               <p className="mb-4 text-center text-sm font-medium text-slate-700 sm:text-base">
                 "Pedro tiene 28 cts., Juan tiene 31 cts. ¿Cuánto tienen entre los dos?"
               </p>
@@ -609,7 +640,7 @@ export default function TestPage() {
 
             <button
               onClick={iniciarProblemas}
-              className="w-full rounded-lg bg-emerald-600 px-6 py-3.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-emerald-700 hover:shadow-xl active:scale-[0.98]"
+              className="w-full rounded-lg bg-uam-naranja px-6 py-3.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:bg-uam-naranja/90 hover:shadow-xl active:scale-[0.98]"
             >
               Comenzar Problemas
             </button>
@@ -635,8 +666,8 @@ export default function TestPage() {
               className={
                 'rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ' +
                 (fase === FASES.TEST_OPERACIONES
-                  ? 'bg-indigo-100 text-indigo-700'
-                  : 'bg-emerald-100 text-emerald-700')
+                  ? 'bg-uam-celeste/10 text-uam-celeste-dark'
+                  : 'bg-uam-naranja/10 text-uam-naranja')
               }
             >
               {fase === FASES.TEST_OPERACIONES ? 'Operaciones' : 'Problemas'}
@@ -644,6 +675,11 @@ export default function TestPage() {
             <span className="text-xs text-slate-400 font-medium">
               {preguntaActualIndex + 1} / {totalPreguntas}
             </span>
+          </div>
+
+          {/* Centro: Logo Principal UAM */}
+          <div className="flex items-center justify-center">
+            <img src={logoUam} alt="UAM Logo" className="h-8 w-auto object-contain" />
           </div>
 
           {/* Derecha: temporizador */}
@@ -671,7 +707,7 @@ export default function TestPage() {
           <div
             className={
               'h-full transition-all duration-500 ease-out ' +
-              (fase === FASES.TEST_OPERACIONES ? 'bg-indigo-500' : 'bg-emerald-500')
+              (fase === FASES.TEST_OPERACIONES ? 'bg-uam-celeste' : 'bg-uam-naranja')
             }
             style={{ width: `${progreso}%` }}
           />
@@ -693,12 +729,7 @@ export default function TestPage() {
               <div className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-900/5 sm:p-8">
                 {/* Encabezado */}
                 <div className="mb-6 flex items-start gap-4">
-                  <span
-                    className={
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ' +
-                      (fase === FASES.TEST_OPERACIONES ? 'bg-indigo-600' : 'bg-emerald-600')
-                    }
-                  >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white bg-uam-celeste">
                     {preguntaActualIndex + 1}
                   </span>
 
@@ -727,7 +758,7 @@ export default function TestPage() {
                         className={
                           'flex w-full items-center gap-4 rounded-xl border-2 px-5 py-4 text-left text-sm transition-all duration-200 sm:text-base ' +
                           (isSelected
-                            ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md shadow-blue-100'
+                            ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md shadow-blue-100 ring-2 ring-blue-500'
                             : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/40')
                         }
                       >
@@ -758,17 +789,24 @@ export default function TestPage() {
                 </div>
               </div>
 
-              {/* Botón Siguiente / Finalizar Sección */}
-              <div className="mt-8 text-center">
+              {/* Botón Anterior / Siguiente / Finalizar Sección */}
+              <div className="mt-8 flex justify-center gap-4">
+                {preguntaActualIndex > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleAnterior}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-8 py-4 text-sm font-bold uppercase tracking-wide text-slate-600 shadow transition hover:bg-slate-50 hover:text-slate-800 hover:border-slate-400 active:scale-[0.97]"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                    </svg>
+                    Anterior
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleSiguiente}
-                  className={
-                    'inline-flex items-center gap-2 rounded-xl px-10 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:shadow-xl active:scale-[0.97] ' +
-                    (fase === FASES.TEST_OPERACIONES
-                      ? 'bg-indigo-600 hover:bg-indigo-700'
-                      : 'bg-emerald-600 hover:bg-emerald-700')
-                  }
+                  className="inline-flex items-center gap-2 rounded-xl bg-uam-celeste hover:bg-uam-celeste-dark px-10 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:shadow-xl active:scale-[0.97]"
                 >
                   {esUltimaPregunta ? 'Finalizar Sección' : 'Siguiente'}
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
