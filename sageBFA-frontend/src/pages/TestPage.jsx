@@ -205,7 +205,8 @@ export default function TestPage() {
         document.exitFullscreen().catch(() => {});
       }
 
-      navigate('/resultados', { state: { resultado }, replace: true });
+      localStorage.setItem('modulo_N2_completado', 'true');
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setError('Error al enviar la evaluación: ' + (err.response?.data?.error || err.message));
       setFase(FASES.TEST_PROBLEMAS);
@@ -729,7 +730,10 @@ export default function TestPage() {
               <div className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-900/5 sm:p-8">
                 {/* Encabezado */}
                 <div className="mb-6 flex items-start gap-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white bg-uam-celeste">
+                  <span className={
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white transition-colors duration-300 ' +
+                    (fase === FASES.TEST_OPERACIONES ? 'bg-uam-celeste' : 'bg-uam-naranja')
+                  }>
                     {preguntaActualIndex + 1}
                   </span>
 
@@ -806,7 +810,12 @@ export default function TestPage() {
                 <button
                   type="button"
                   onClick={handleSiguiente}
-                  className="inline-flex items-center gap-2 rounded-xl bg-uam-celeste hover:bg-uam-celeste-dark px-10 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:shadow-xl active:scale-[0.97]"
+                  className={
+                    'inline-flex items-center gap-2 rounded-xl px-10 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:shadow-xl active:scale-[0.97] ' +
+                    (fase === FASES.TEST_OPERACIONES
+                      ? 'bg-uam-celeste hover:bg-uam-celeste-dark'
+                      : 'bg-uam-naranja hover:bg-uam-naranja/90')
+                  }
                 >
                   {esUltimaPregunta ? 'Finalizar Sección' : 'Siguiente'}
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -148,7 +148,7 @@ export default function WelcomePage() {
     };
 
     localStorage.setItem('candidato_actual', JSON.stringify(candidato));
-    navigate('/test');
+    navigate('/dashboard');
   }
 
   const municipiosDisponibles = form.departamento ? UBICACIONES_NICARAGUA[form.departamento] : [];
@@ -456,7 +456,7 @@ export default function WelcomePage() {
                   : 'cursor-not-allowed bg-slate-300 text-slate-500')
               }
             >
-              Iniciar Prueba
+              Ir al Panel de Evaluaciones
             </button>
           </form>
         </div>
