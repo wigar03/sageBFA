@@ -100,6 +100,8 @@ export default function TestPage() {
   const [seleccionActual, setSeleccionActual] = useState(null);
   const [activeExampleOperaciones, setActiveExampleOperaciones] = useState(0);
   const [activeExampleProblemas, setActiveExampleProblemas] = useState(0);
+  const [isTimeUp, setIsTimeUp] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   // Estados de seguridad para pantalla completa (Fullscreen Police)
   const [isFullscreenViolated, setIsFullscreenViolated] = useState(false);
@@ -241,6 +243,8 @@ export default function TestPage() {
   // POST final
   // ─────────────────────────────────────────────
   const enviarEvaluacion = useCallback(async (respuestasFinales) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setFase(FASES.FINALIZANDO);
 
     if (intervaloRef.current) {
@@ -253,7 +257,6 @@ export default function TestPage() {
       const payload = { ...candidato, respuestas: respuestasFinales };
       const { data: resultado } = await api.post('/test-numerico/evaluar', payload);
 
-      // Salir de pantalla completa antes de redirigir
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
@@ -263,6 +266,8 @@ export default function TestPage() {
     } catch (err) {
       setError('Error al enviar la evaluación: ' + (err.response?.data?.error || err.message));
       setFase(FASES.TEST_PROBLEMAS);
+      isSubmittingRef.current = false;
+      setIsTimeUp(false);
     }
   }, [navigate]);
 
@@ -270,21 +275,53 @@ export default function TestPage() {
   // Agotar tiempo
   // ─────────────────────────────────────────────
   const alAgotarTiempo = useCallback(() => {
-    registrarRespuestaActual();
+    if (isSubmittingRef.current) return;
 
     const data = testDataRef.current;
     if (!data) return;
 
     if (faseRef.current === FASES.TEST_OPERACIONES) {
+      registrarRespuestaActual();
       registrarPreguntasRestantes(data.operaciones, preguntaIndexRef.current + 1);
-      setPreguntaActualIndex(0);
-      setSeleccionActual(null);
-      setFase(FASES.INSTRUCCIONES_PROBLEMAS);
-    } else if (faseRef.current === FASES.TEST_PROBLEMAS) {
-      registrarPreguntasRestantes(data.problemas, preguntaIndexRef.current + 1);
       setTimeout(() => {
-        enviarEvaluacion(respuestasRef.current);
-      }, 50);
+        setPreguntaActualIndex(0);
+        setSeleccionActual(null);
+        setFase(FASES.INSTRUCCIONES_PROBLEMAS);
+      }, 100);
+    } else if (faseRef.current === FASES.TEST_PROBLEMAS) {
+      setIsTimeUp(true);
+      registrarRespuestaActual();
+
+      const tiempoTotal = (data.tiempoProblemasMin ?? 6) * 60;
+      const respondidas = new Set(respuestasRef.current.map(r => r.preguntaId));
+      
+      const preguntaActualId = data.problemas[preguntaIndexRef.current]?.id;
+      if (preguntaActualId && !respondidas.has(preguntaActualId)) {
+        const tiempoTranscurrido = Math.round((Date.now() - tiempoInicioSeccionRef.current) / 1000);
+        respuestasRef.current = [
+          ...respuestasRef.current,
+          {
+            preguntaId: preguntaActualId,
+            opcionElegidaId: seleccionRef.current,
+            tiempoSegundos: tiempoTranscurrido,
+          }
+        ];
+        respondidas.add(preguntaActualId);
+      }
+
+      const noRespondidas = data.problemas
+        .filter(p => !respondidas.has(p.id))
+        .map(p => ({
+          preguntaId: p.id,
+          opcionElegidaId: null,
+          tiempoSegundos: tiempoTotal
+        }));
+
+      const respuestasDefinitivas = [...respuestasRef.current, ...noRespondidas];
+
+      setTimeout(() => {
+        enviarEvaluacion(respuestasDefinitivas);
+      }, 100);
     }
   }, [enviarEvaluacion]);
 
@@ -383,6 +420,8 @@ export default function TestPage() {
   // ─────────────────────────────────────────────
   function iniciarOperaciones() {
     entrarPantallaCompleta();
+    setIsTimeUp(false);
+    isSubmittingRef.current = false;
     const minutos = testData?.tiempoOperacionesMin ?? FALLBACK_TIEMPO_MIN;
     setTiempoRestante(minutos * 60);
     tiempoInicioSeccionRef.current = Date.now();
@@ -392,6 +431,8 @@ export default function TestPage() {
   }
 
   function iniciarProblemas() {
+    setIsTimeUp(false);
+    isSubmittingRef.current = false;
     const minutos = testData?.tiempoProblemasMin ?? FALLBACK_TIEMPO_MIN;
     setTiempoRestante(minutos * 60);
     tiempoInicioSeccionRef.current = Date.now();
@@ -412,6 +453,8 @@ export default function TestPage() {
   }
 
   function handleSiguiente() {
+    if (isSubmittingRef.current) return;
+
     registrarRespuestaActual();
 
     if (!esUltimaPregunta) {
@@ -430,9 +473,39 @@ export default function TestPage() {
           clearInterval(intervaloRef.current);
           intervaloRef.current = null;
         }
+        setIsTimeUp(true);
+
+        const data = testDataRef.current;
+        let respuestasDefinitivas = respuestasCandidato;
+        if (data) {
+          const pregunta = data.problemas[preguntaActualIndex];
+          if (pregunta) {
+            const sinDuplicado = respuestasCandidato.filter(r => r.preguntaId !== pregunta.id);
+            const tiempoTranscurrido = Math.round((Date.now() - tiempoInicioSeccionRef.current) / 1000);
+            respuestasDefinitivas = [
+              ...sinDuplicado,
+              {
+                preguntaId: pregunta.id,
+                opcionElegidaId: seleccionActual,
+                tiempoSegundos: tiempoTranscurrido,
+              }
+            ];
+          }
+
+          const respondidas = new Set(respuestasDefinitivas.map(r => r.preguntaId));
+          const noRespondidas = data.problemas
+            .filter(p => !respondidas.has(p.id))
+            .map(p => ({
+              preguntaId: p.id,
+              opcionElegidaId: null,
+              tiempoSegundos: (data.tiempoProblemasMin ?? 6) * 60
+            }));
+          respuestasDefinitivas = [...respuestasDefinitivas, ...noRespondidas];
+        }
+
         setTimeout(() => {
-          enviarEvaluacion(respuestasRef.current);
-        }, 50);
+          enviarEvaluacion(respuestasDefinitivas);
+        }, 100);
       }
     }
   }
@@ -511,7 +584,9 @@ export default function TestPage() {
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-4 border-uam-celeste/20 border-t-uam-celeste" />
-          <p className="text-sm font-medium text-slate-500">Enviando evaluación…</p>
+          <p className="text-sm font-medium text-slate-600 px-4">
+            {isTimeUp ? 'Tiempo agotado. Guardando evaluación de forma segura...' : 'Enviando evaluación…'}
+          </p>
         </div>
       </div>
     );
@@ -738,7 +813,25 @@ export default function TestPage() {
   const tiempoBajo = tiempoRestante !== null && tiempoRestante < 60;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 relative">
+      {/* Overlay de Cierre Automático (Lockdown) */}
+      {isTimeUp && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="max-w-md w-full rounded-2xl bg-white p-8 text-center shadow-2xl border border-slate-100 flex flex-col items-center">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-500 border border-amber-200">
+              <svg className="h-8 w-8 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <h3 className="mb-2 text-xl font-extrabold text-slate-800">Tiempo agotado</h3>
+            <p className="text-sm text-slate-600 leading-relaxed font-medium">
+              Guardando evaluación de forma segura...
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Header sticky: sección + temporizador ── */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
@@ -825,11 +918,12 @@ export default function TestPage() {
                 <button
                   key={preg.id}
                   type="button"
+                  disabled={isTimeUp}
                   onClick={() => {
                     registrarRespuestaActual();
                     setPreguntaActualIndex(idx);
                   }}
-                  className={btnClass}
+                  className={btnClass + (isTimeUp ? " opacity-50 cursor-not-allowed" : "")}
                 >
                   {idx + 1}
                 </button>
@@ -879,12 +973,14 @@ export default function TestPage() {
                       <button
                         key={opcion.id}
                         type="button"
+                        disabled={isTimeUp}
                         onClick={() => setSeleccionActual(opcion.id)}
                         className={
                           'flex w-full items-center gap-4 rounded-xl border-2 px-5 py-4 text-left text-sm transition-all duration-200 sm:text-base ' +
                           (isSelected
                             ? 'border-blue-500 bg-blue-50 text-blue-800 shadow-md shadow-blue-100 ring-2 ring-blue-500'
-                            : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/40')
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/40') +
+                          (isTimeUp ? ' opacity-60 cursor-not-allowed' : '')
                         }
                       >
                         {/* Indicador radio */}
@@ -919,8 +1015,12 @@ export default function TestPage() {
                 {preguntaActualIndex > 0 && (
                   <button
                     type="button"
+                    disabled={isTimeUp}
                     onClick={handleAnterior}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-8 py-4 text-sm font-bold uppercase tracking-wide text-slate-600 shadow transition hover:bg-slate-50 hover:text-slate-800 hover:border-slate-400 active:scale-[0.97]"
+                    className={
+                      'inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-8 py-4 text-sm font-bold uppercase tracking-wide text-slate-600 shadow transition hover:bg-slate-50 hover:text-slate-800 hover:border-slate-400 active:scale-[0.97] ' +
+                      (isTimeUp ? 'opacity-50 cursor-not-allowed' : '')
+                    }
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
@@ -930,15 +1030,17 @@ export default function TestPage() {
                 )}
                 <button
                   type="button"
+                  disabled={isTimeUp}
                   onClick={handleSiguiente}
                   className={
                     'inline-flex items-center gap-2 rounded-xl px-10 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:shadow-xl active:scale-[0.97] ' +
                     (fase === FASES.TEST_OPERACIONES
                       ? 'bg-uam-celeste hover:bg-uam-celeste-dark'
-                      : 'bg-uam-naranja hover:bg-uam-naranja/90')
+                      : 'bg-uam-naranja hover:bg-uam-naranja/90') +
+                    (isTimeUp ? ' opacity-50 cursor-not-allowed' : '')
                   }
                 >
-                  {esUltimaPregunta ? 'Finalizar Sección' : 'Siguiente'}
+                  {isTimeUp ? 'Guardando...' : (esUltimaPregunta ? 'Finalizar Sección' : 'Siguiente')}
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
