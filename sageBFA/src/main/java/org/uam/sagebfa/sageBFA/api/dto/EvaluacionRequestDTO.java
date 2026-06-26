@@ -24,6 +24,9 @@ public class EvaluacionRequestDTO {
     private String municipio;
     private String tipoColegio;
 
+    // Código del módulo a evaluar (ej. N2, CV, N1)
+    private String codigoModulo;
+
     // Listado de Respuestas
     private List<RespuestaRequestDTO> respuestas;
 }

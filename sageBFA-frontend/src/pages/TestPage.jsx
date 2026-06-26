@@ -85,6 +85,24 @@ function MathText({ text, display = false }) {
   return <span>{text}</span>;
 }
 
+function renderMixedText(text) {
+  if (!text) return null;
+  const safeText = text.replace(/\\+/g, '\\');
+  const regex = /(\\frac\{[^{}]*\}\{[^{}]*\}|\\left\(.*?\\right\)|[0-9.,-]+\s*\\times\s*[0-9.,-]+)/g;
+  const parts = safeText.split(regex);
+  return (
+    <span>
+      {parts.map((part, index) => {
+        const isMath = /\\frac|\\left|\\times/.test(part);
+        if (isMath) {
+          return <TeX key={index} math={part} />;
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </span>
+  );
+}
+
 export default function TestPage() {
   const navigate = useNavigate();
 
@@ -959,7 +977,7 @@ export default function TestPage() {
                         <TeX block math={preguntaActual.enunciado.replace(/\\+/g, '\\').replace(/\\square/g, '\\Box')} />
                       </div>
                     ) : (
-                      <p className="font-medium">{preguntaActual.enunciado}</p>
+                      <p className="font-medium">{renderMixedText(preguntaActual.enunciado)}</p>
                     )}
                   </div>
                 </div>

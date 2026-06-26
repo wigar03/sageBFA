@@ -21,8 +21,11 @@ import lombok.*;
  */
 @Entity
 @Getter @Setter
-@Tab(properties = "nivelEstudio, puntuacionDirectaMinima, puntuacionDirectaMaxima, percentil")
+@Tab(properties = "moduloPrueba.codigoModulo, nivelEstudio, puntuacionDirectaMinima, puntuacionDirectaMaxima, percentil")
 @View(members = ""
+    + "Módulo {"
+    + "  moduloPrueba"
+    + "}"
     + "Rango de Puntuación {"
     + "  puntuacionDirectaMinima; puntuacionDirectaMaxima"
     + "}"
@@ -36,6 +39,14 @@ public class BaremoNacional {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Hidden
     private Long id;
+
+    /** Módulo de prueba al que pertenece este baremo. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "modulo_prueba_id", nullable = false)
+    @Required
+    @NoCreate @NoModify
+    @DescriptionsList(descriptionProperties = "codigoModulo, nombre")
+    private ModuloPrueba moduloPrueba;
 
     /** Valor mínimo de P.D. incluido en este rango (inclusive). */
     @Column(nullable = false)

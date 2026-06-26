@@ -51,22 +51,41 @@ public class EvaluacionService {
             candidato.setMunicipio(request.getMunicipio());
             candidato.setTipoColegio(request.getTipoColegio());
 
+            // Cargar módulo dinámicamente basándose en codigoModulo (por defecto "N2")
+            String codModulo = request.getCodigoModulo();
+            if (codModulo == null || codModulo.trim().isEmpty()) {
+                codModulo = "N2";
+            }
+            
+            TypedQuery<ModuloPrueba> modQuery = em.createQuery(
+                "SELECT m FROM ModuloPrueba m WHERE m.codigoModulo = :cod", ModuloPrueba.class
+            );
+            modQuery.setParameter("cod", codModulo);
+            List<ModuloPrueba> modulos = modQuery.getResultList();
+            if (modulos.isEmpty()) {
+                throw new IllegalArgumentException("Módulo de prueba no encontrado con código: " + codModulo);
+            }
+            ModuloPrueba modulo = modulos.get(0);
+
             if (candidato.getId() == null) {
                 em.persist(candidato);
             } else {
                 candidato = em.merge(candidato);
                 
-                // Limpiar respuestas e intentos anteriores para evitar duplicados o inconsistencias
-                em.createQuery("DELETE FROM ResultadoN2 r WHERE r.candidato.id = :cId")
+                // Limpiar intentos anteriores de este módulo específico para evitar inconsistencias
+                em.createQuery("DELETE FROM IntentoEvaluacion i WHERE i.candidato.id = :cId AND i.moduloPrueba.id = :modId")
                   .setParameter("cId", candidato.getId())
-                  .executeUpdate();
-
-                em.createQuery("DELETE FROM RespuestaCandidato r WHERE r.candidato.id = :cId")
-                  .setParameter("cId", candidato.getId())
+                  .setParameter("modId", modulo.getId())
                   .executeUpdate();
             }
 
-            // B. Procesar e insertar cada respuesta, calculando puntuación directa
+            // B. Crear Intento de Evaluación
+            IntentoEvaluacion intento = new IntentoEvaluacion();
+            intento.setCandidato(candidato);
+            intento.setModuloPrueba(modulo);
+            intento.setFechaHora(new java.util.Date());
+
+            // C. Procesar cada respuesta, calculando puntuación directa
             int aciertos = 0;
             if (request.getRespuestas() != null) {
                 for (RespuestaRequestDTO respDto : request.getRespuestas()) {
@@ -77,30 +96,31 @@ public class EvaluacionService {
 
                     OpcionRespuesta opcion = null;
                     Long opcionId = respDto.getOpcionElegidaId();
-                    // Defensa: solo buscar en la base de datos si el ID no es nulo y es mayor que cero
                     if (opcionId != null && opcionId > 0) {
                         opcion = em.find(OpcionRespuesta.class, opcionId);
                     }
 
                     RespuestaCandidato respuesta = new RespuestaCandidato();
-                    respuesta.setCandidato(candidato);
                     respuesta.setPregunta(pregunta);
                     respuesta.setOpcionElegida(opcion);
                     respuesta.setTiempoSegundos(respDto.getTiempoSegundos() != null ? respDto.getTiempoSegundos() : 0);
-                    em.persist(respuesta);
+                    
+                    // Asociar bidireccionalmente al intento (se guarda en cascada)
+                    intento.agregarRespuesta(respuesta);
 
-                    // Regla de calificación: Solo suma si la opción elegida es correcta
+                    // Regla de calificación: acierto si la opción elegida es correcta
                     if (opcion != null && Boolean.TRUE.equals(opcion.getEsCorrecta())) {
                         aciertos++;
                     }
                 }
             }
 
-            // C. Determinar el Percentil buscando en BaremoNacional
+            // D. Determinar el Percentil buscando en BaremoNacional del módulo correspondiente
             TypedQuery<BaremoNacional> baremoQuery = em.createQuery(
-                "SELECT b FROM BaremoNacional b WHERE :aciertos >= b.puntuacionDirectaMinima AND :aciertos <= b.puntuacionDirectaMaxima",
+                "SELECT b FROM BaremoNacional b WHERE b.moduloPrueba.id = :modId AND :aciertos >= b.puntuacionDirectaMinima AND :aciertos <= b.puntuacionDirectaMaxima",
                 BaremoNacional.class
             );
+            baremoQuery.setParameter("modId", modulo.getId());
             baremoQuery.setParameter("aciertos", aciertos);
             List<BaremoNacional> baremos = baremoQuery.getResultList();
 
@@ -111,12 +131,13 @@ public class EvaluacionService {
                 baremoAplicado = baremos.get(0);
                 percentil = baremoAplicado.getPercentil();
             } else {
-                // Fallbacks para límites fuera de rango del baremo
+                // Fallbacks para límites fuera de rango
                 if (aciertos > 16) {
                     percentil = 99;
                     TypedQuery<BaremoNacional> maxBaremoQuery = em.createQuery(
-                        "SELECT b FROM BaremoNacional b ORDER BY b.percentil DESC", BaremoNacional.class
+                        "SELECT b FROM BaremoNacional b WHERE b.moduloPrueba.id = :modId ORDER BY b.percentil DESC", BaremoNacional.class
                     );
+                    maxBaremoQuery.setParameter("modId", modulo.getId());
                     maxBaremoQuery.setMaxResults(1);
                     List<BaremoNacional> maxBaremos = maxBaremoQuery.getResultList();
                     if (!maxBaremos.isEmpty()) {
@@ -125,8 +146,9 @@ public class EvaluacionService {
                 } else {
                     percentil = 1;
                     TypedQuery<BaremoNacional> minBaremoQuery = em.createQuery(
-                        "SELECT b FROM BaremoNacional b ORDER BY b.percentil ASC", BaremoNacional.class
+                        "SELECT b FROM BaremoNacional b WHERE b.moduloPrueba.id = :modId ORDER BY b.percentil ASC", BaremoNacional.class
                     );
+                    minBaremoQuery.setParameter("modId", modulo.getId());
                     minBaremoQuery.setMaxResults(1);
                     List<BaremoNacional> minBaremos = minBaremoQuery.getResultList();
                     if (!minBaremos.isEmpty()) {
@@ -135,34 +157,45 @@ public class EvaluacionService {
                 }
             }
 
-            // D. Obtener Prueba y Registrar ResultadoN2
-            TestNumerico test = em.find(TestNumerico.class, 1L);
-            if (test == null) {
-                throw new IllegalStateException("Test Numérico con ID 1 no inicializado en la base de datos.");
+            // E. Asignar puntuaciones y diagnóstico cualitativo
+            intento.setPuntuacionDirecta(aciertos);
+            intento.setPercentil(percentil);
+            intento.setBaremoAplicado(baremoAplicado);
+
+            String diagnostico = "Medio";
+            if (aciertos <= 10) {
+                switch (aciertos) {
+                    case 0: diagnostico = "Deficiente"; break;
+                    case 1:
+                    case 2: diagnostico = "Inferior"; break;
+                    case 3: diagnostico = "Medio Bajo"; break;
+                    case 4: diagnostico = "Medio"; break;
+                    case 5: diagnostico = "Medio Alto"; break;
+                    case 6:
+                    case 7: diagnostico = "Superior"; break;
+                    default: diagnostico = "Muy Superior"; break;
+                }
+            } else {
+                diagnostico = "Excelente";
             }
+            intento.setDiagnostico(diagnostico);
 
-            ResultadoN2 resultado = new ResultadoN2();
-            resultado.setCandidato(candidato);
-            resultado.setTestNumerico(test);
-            resultado.setPuntuacionDirecta(aciertos);
-            resultado.setPercentil(percentil);
-            resultado.setBaremoAplicado(baremoAplicado);
-            resultado.setFechaEvaluacion(LocalDateTime.now());
-            em.persist(resultado);
+            // Persistir el intento (las respuestas se guardan en cascada)
+            em.persist(intento);
 
-            // E. Comprometer la transacción
+            // F. Comprometer la transacción
             XPersistence.commit();
 
-            // F. Mapear al DTO de respuesta
+            // G. Mapear al DTO de respuesta
             return ResultadoResponseDTO.builder()
-                .id(resultado.getId())
+                .id(intento.getId())
                 .candidatoNombres(candidato.getNombres())
                 .candidatoApellidos(candidato.getApellidos())
                 .candidatoCorreo(candidato.getCorreo())
-                .puntuacionDirecta(resultado.getPuntuacionDirecta())
-                .percentil(resultado.getPercentil())
-                .fechaEvaluacion(resultado.getFechaEvaluacion().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
-                .nombrePrueba(test.getNombre())
+                .puntuacionDirecta(intento.getPuntuacionDirecta())
+                .percentil(intento.getPercentil())
+                .fechaEvaluacion(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(intento.getFechaHora()))
+                .nombrePrueba(modulo.getNombre())
                 .build();
 
         } catch (Exception e) {

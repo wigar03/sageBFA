@@ -26,6 +26,43 @@ public class TestNumericoServlet extends HttpServlet {
 
     private final EvaluacionService evaluacionService = new EvaluacionService();
     private final ObjectMapper mapper = new ObjectMapper();
+    private static volatile boolean menuCleaned = false;
+
+    private void cleanNavioxMenu() {
+        if (menuCleaned) return;
+        synchronized (TestNumericoServlet.class) {
+            if (menuCleaned) return;
+            EntityManager em = XPersistence.getManager();
+            try {
+                em.getTransaction().begin();
+                String[] joinTables = {"oxroles_modules", "oxmodules_roles", "oxroles_oxmodules", "oxmodules_oxroles"};
+                for (String table : joinTables) {
+                    try {
+                        em.createNativeQuery("DELETE FROM " + table + " WHERE module_name IN ('Pregunta', 'BaremoNacional', 'Psicologo', 'UsuarioAdministrativo', 'OpcionRespuesta', 'RespuestaCandidato', 'Usuario')").executeUpdate();
+                    } catch (Exception e) {
+                        // Ignorar
+                    }
+                }
+                try {
+                    em.createNativeQuery("DELETE FROM oxmodules WHERE name IN ('Pregunta', 'BaremoNacional', 'Psicologo', 'UsuarioAdministrativo', 'OpcionRespuesta', 'RespuestaCandidato', 'Usuario')").executeUpdate();
+                } catch (Exception e) {
+                    // Ignorar
+                }
+                em.getTransaction().commit();
+                menuCleaned = true;
+                System.out.println("[NaviOX Cleanup] Módulos obsoletos limpiados con éxito de la base de datos.");
+            } catch (Exception ex) {
+                try {
+                    if (em.getTransaction().isActive()) {
+                        em.getTransaction().rollback();
+                    }
+                } catch (Exception e) {
+                    // Ignorar
+                }
+                System.out.println("[NaviOX Cleanup] Advertencia durante la limpieza: " + ex.getMessage());
+            }
+        }
+    }
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -35,6 +72,7 @@ public class TestNumericoServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        cleanNavioxMenu();
         setCorsHeaders(resp);
         
         String pathInfo = req.getPathInfo();
@@ -54,22 +92,27 @@ public class TestNumericoServlet extends HttpServlet {
 
         EntityManager em = XPersistence.getManager();
         try {
-            TestNumerico test = em.find(TestNumerico.class, 1L);
-            if (test == null) {
+            TypedQuery<ModuloPrueba> mq = em.createQuery(
+                "SELECT m FROM ModuloPrueba m WHERE m.codigoModulo = 'N2'", ModuloPrueba.class
+            );
+            List<ModuloPrueba> modulos = mq.getResultList();
+            if (modulos.isEmpty()) {
                 resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 resp.setContentType("application/json;charset=UTF-8");
-                resp.getWriter().write("{\"error\": \"Test Numérico (Factor N2) no está inicializado en el sistema.\"}");
+                resp.getWriter().write("{\"error\": \"Módulo N2 no está inicializado en el sistema.\"}");
                 return;
             }
+            ModuloPrueba modulo = modulos.get(0);
 
             // Agrupar preguntas por sección (Operaciones y Problemas) y ordenarlas
             List<PreguntaDTO> operaciones = new ArrayList<>();
             List<PreguntaDTO> problemas = new ArrayList<>();
 
             TypedQuery<Pregunta> pq = em.createQuery(
-                "SELECT p FROM Pregunta p WHERE p.prueba.idPrueba = 1 ORDER BY p.seccion ASC, p.orden ASC",
+                "SELECT p FROM Pregunta p WHERE p.moduloPrueba.id = :modId ORDER BY p.seccion ASC, p.orden ASC",
                 Pregunta.class
             );
+            pq.setParameter("modId", modulo.getId());
             List<Pregunta> preguntas = pq.getResultList();
 
             for (Pregunta p : preguntas) {
@@ -81,24 +124,24 @@ public class TestNumericoServlet extends HttpServlet {
                 PreguntaDTO pDto = new PreguntaDTO(
                     p.getId(), 
                     p.getOrden(), 
-                    p.getSeccion().name(), 
+                    p.getSeccion(), 
                     p.getEnunciado(), 
                     opsDto
                 );
 
-                if (p.getSeccion() == SeccionN2.OPERACIONES) {
+                if ("OPERACIONES".equalsIgnoreCase(p.getSeccion())) {
                     operaciones.add(pDto);
-                } else if (p.getSeccion() == SeccionN2.PROBLEMAS) {
+                } else if ("PROBLEMAS".equalsIgnoreCase(p.getSeccion())) {
                     problemas.add(pDto);
                 }
             }
 
             TestNumericoDTO testDto = new TestNumericoDTO(
-                test.getIdPrueba(),
-                test.getNombre(),
-                test.getTiempoLimiteMinutos(),
-                test.getTiempoOperacionesMin(),
-                test.getTiempoProblemasMin(),
+                modulo.getId(),
+                modulo.getNombre(),
+                modulo.getTiempoLimiteMinutos(),
+                6, // Tiempo de operaciones por defecto
+                6, // Tiempo de problemas por defecto
                 operaciones,
                 problemas
             );
@@ -120,6 +163,7 @@ public class TestNumericoServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        cleanNavioxMenu();
         setCorsHeaders(resp);
         
         String pathInfo = req.getPathInfo();
@@ -182,6 +226,39 @@ public class TestNumericoServlet extends HttpServlet {
                 return;
             }
 
+            // Buscar el último intento de evaluación para el módulo N2 en la colección del candidato
+            IntentoEvaluacion intento = null;
+            if (candidato.getIntentos() != null) {
+                for (IntentoEvaluacion i : candidato.getIntentos()) {
+                    if (i.getModuloPrueba() != null && "N2".equals(i.getModuloPrueba().getCodigoModulo())) {
+                        if (intento == null || i.getFechaHora().after(intento.getFechaHora())) {
+                            intento = i;
+                        }
+                    }
+                }
+            }
+
+            // Variables con valores por defecto (Null-Safety)
+            String codigoModulo = "N2";
+            String puntuacionDirecta = "0";
+            String percentilStr = "N/A";
+            String diagnostico = "Sin evaluar";
+
+            if (intento != null) {
+                if (intento.getModuloPrueba() != null) {
+                    codigoModulo = intento.getModuloPrueba().getCodigoModulo();
+                }
+                if (intento.getPuntuacionDirecta() != null) {
+                    puntuacionDirecta = String.valueOf(intento.getPuntuacionDirecta());
+                }
+                if (intento.getPercentil() != null) {
+                    percentilStr = String.valueOf(intento.getPercentil());
+                }
+                if (intento.getDiagnostico() != null) {
+                    diagnostico = intento.getDiagnostico();
+                }
+            }
+
             // Generar PDF usando OpenPDF
             resp.setContentType("application/pdf");
             resp.setHeader("Content-Disposition", "inline; filename=\"reporte_clinico_" + candidato.getCedula() + ".pdf\"");
@@ -216,7 +293,7 @@ public class TestNumericoServlet extends HttpServlet {
 
             // 2. Subtítulo
             Font subTitleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-            Paragraph subtitle = new Paragraph("Área Numérica - Factor N2", subTitleFont);
+            Paragraph subtitle = new Paragraph("Área Numérica - Factor " + codigoModulo, subTitleFont);
             subtitle.setAlignment(Element.ALIGN_CENTER);
             subtitle.setSpacingAfter(25);
             document.add(subtitle);
@@ -266,9 +343,9 @@ public class TestNumericoServlet extends HttpServlet {
             resultTable.addCell(new Phrase("Percentil", sectionFont));
             resultTable.addCell(new Phrase("Diagnóstico Clínico", sectionFont));
 
-            resultTable.addCell(new Phrase(String.valueOf(candidato.getPuntuacionFinal()) + " / 20", bodyFont));
-            resultTable.addCell(new Phrase(String.valueOf(candidato.getPercentil()), bodyFont));
-            resultTable.addCell(new Phrase(candidato.getDiagnostico(), bodyFont));
+            resultTable.addCell(new Phrase(puntuacionDirecta + " / 20", bodyFont));
+            resultTable.addCell(new Phrase(percentilStr, bodyFont));
+            resultTable.addCell(new Phrase(diagnostico, bodyFont));
 
             document.add(resultTable);
 
@@ -276,11 +353,9 @@ public class TestNumericoServlet extends HttpServlet {
             Paragraph sectionInterpret = new Paragraph("3. Interpretación Diagnóstica", sectionFont);
             sectionInterpret.setSpacingAfter(10);
             document.add(sectionInterpret);
-
-            String diagnostico = candidato.getDiagnostico();
             String interpretacionText = "";
             if ("Deficiente".equals(diagnostico) || "Inferior".equals(diagnostico) || "Medio Bajo".equals(diagnostico)) {
-                interpretacionText = "El candidato presenta un rendimiento en el Factor N2 que se sitúa por debajo del promedio esperado. Este déficit en aptitudes numéricas puede ser la resultante de una integración insuficiente de los aprendizajes elementales, o bien derivar de posibles inhibiciones psicopedagógicas frente a los sistemas de numeración y trastornos del ritmo, según los lineamientos del manual del test. Se recomienda nivelación y apoyo pedagógico enfocado.";
+                interpretacionText = "El candidato presenta un rendimiento en el Factor N2 que se sitúa por debajo del promedio esperado. Este déficit en aptitudes numéricas puede ser la resultante de una integración insuficiente de los aprendizajes elementales, o bien de posibles inhibiciones psicopedagógicas frente a los sistemas de numeración y trastornos del ritmo, según los lineamientos del manual del test. Se recomienda nivelación y apoyo pedagógico enfocado.";
             } else if ("Medio".equals(diagnostico) || "Medio Alto".equals(diagnostico)) {
                 interpretacionText = "El candidato posee un rendimiento promedio en la manipulación y comprensión del factor numérico, evidenciando un manejo adecuado de esquemas anticipatorios básicos. Esto le faculta para resolver de forma satisfactoria operaciones matemáticas cotidianas, cálculo conceptual básico y problemas de razonamiento aritmético estándar.";
             } else { // Superior, Muy Superior, Excelente

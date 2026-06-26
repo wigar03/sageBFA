@@ -18,7 +18,7 @@ import lombok.*;
  */
 @Entity
 @Getter @Setter
-@Tab(properties = "candidato.correo, pregunta.enunciado, opcionElegida.literal, tiempoSegundos")
+@Tab(properties = "intento.candidato.correo, intento.moduloPrueba.codigoModulo, pregunta.enunciado, opcionElegida.literal, tiempoSegundos")
 public class RespuestaCandidato {
 
     @Id
@@ -26,13 +26,13 @@ public class RespuestaCandidato {
     @Hidden
     private Long id;
 
-    /** Candidato que emitió esta respuesta. */
+    /** Intento de evaluación al que pertenece esta respuesta. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "candidato_id", nullable = false)
+    @JoinColumn(name = "intento_id", nullable = false)
     @Required
     @NoCreate @NoModify
-    @DescriptionsList(descriptionProperties = "correo, nombres, apellidos")
-    private Candidato candidato;
+    @DescriptionsList(descriptionProperties = "id")
+    private IntentoEvaluacion intento;
 
     /** Pregunta a la que corresponde esta respuesta. */
     @ManyToOne(fetch = FetchType.LAZY)

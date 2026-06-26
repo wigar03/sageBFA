@@ -20,9 +20,10 @@ import lombok.*;
  */
 @Entity
 @Getter @Setter
-@Tab(properties = "orden, seccion, enunciado")
+@Tab(properties = "moduloPrueba.codigoModulo, orden, seccion, enunciado")
 @View(members = ""
     + "Pregunta {"
+    + "  moduloPrueba;"
     + "  orden; seccion;"
     + "  enunciado"
     + "}"
@@ -42,11 +43,10 @@ public class Pregunta {
     @Required
     private Integer orden;
 
-    /** Sección del Factor N2 a la que pertenece esta pregunta. */
-    @Column(nullable = false)
+    /** Sección de la prueba a la que pertenece esta pregunta (ej. OPERACIONES, PROBLEMAS). */
+    @Column(nullable = false, length = 50)
     @Required
-    @Enumerated(EnumType.STRING)
-    private SeccionN2 seccion;
+    private String seccion;
 
     /** Texto del enunciado de la pregunta. */
     @Column(nullable = false, length = 1000)
@@ -54,13 +54,13 @@ public class Pregunta {
     @Stereotype("TEXT_AREA")
     private String enunciado;
 
-    /** Prueba a la que pertenece esta pregunta (relación inversa). */
+    /** Módulo de prueba al que pertenece esta pregunta. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "prueba_id", nullable = false)
+    @JoinColumn(name = "modulo_prueba_id", nullable = false)
     @Required
     @NoCreate @NoModify
-    @DescriptionsList(descriptionProperties = "nombre")
-    private PruebaAptitud prueba;
+    @DescriptionsList(descriptionProperties = "codigoModulo, nombre")
+    private ModuloPrueba moduloPrueba;
 
     /** Opciones de respuesta disponibles (A, B, C, D). */
     @OneToMany(mappedBy = "pregunta", cascade = CascadeType.ALL, orphanRemoval = true)

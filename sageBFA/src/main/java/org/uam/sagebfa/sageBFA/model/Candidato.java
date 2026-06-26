@@ -27,22 +27,18 @@ import lombok.*;
  * @author SageBFA Team
  */
 @Entity
-@DiscriminatorValue("CANDIDATO")
 @Getter @Setter
-@Tab(properties = "nombreCompleto, cedula, edad, departamento, puntuacionFinal, percentil, diagnostico")
+@Tab(properties = "nombres, apellidos, correo, cedula, edad, departamento")
 @View(members = ""
     + "Datos Personales {"
     + "  nombres; apellidos; correo; cedula; edad; telefono;"
     + "  fechaNacimiento; sexo; nivelEstudio; departamento; municipio; tipoColegio"
     + "}"
-    + "Resultados de la Evaluación {"
-    + "  puntuacionFinal; percentil; diagnostico"
-    + "}"
     + "Consentimiento {"
     + "  aceptoConsentimientoInformado"
     + "}"
-    + "Respuestas {"
-    + "  respuestas"
+    + "Historial de Evaluaciones {"
+    + "  intentos"
     + "}"
 )
 public class Candidato extends Usuario {
@@ -97,11 +93,11 @@ public class Candidato extends Usuario {
     @Required
     private Boolean aceptoConsentimientoInformado = false;
 
-    /** Colección de respuestas registradas durante la evaluación. */
+    /** Historial de intentos de evaluación del candidato. */
     @OneToMany(mappedBy = "candidato", cascade = CascadeType.ALL, orphanRemoval = true)
-    @ListProperties("pregunta.enunciado, opcionElegida.literal, tiempoSegundos")
-    @OrderBy("id ASC")
-    private List<RespuestaCandidato> respuestas = new ArrayList<>();
+    @ListProperties("moduloPrueba.codigoModulo, moduloPrueba.nombre, puntuacionDirecta, percentil, diagnostico, fechaHora")
+    @OrderBy("fechaHora DESC")
+    private List<IntentoEvaluacion> intentos = new ArrayList<>();
 
     // ──────────────────────────────────────────────
     //  Propiedades calculadas no persistidas
@@ -112,71 +108,9 @@ public class Candidato extends Usuario {
         return getNombres() + " " + getApellidos();
     }
 
-    @Transient
-    public Integer getPuntuacionFinal() {
-        if (respuestas == null || respuestas.isEmpty()) return 0;
-        int aciertos = 0;
-        for (RespuestaCandidato r : respuestas) {
-            if (r.getOpcionElegida() != null && Boolean.TRUE.equals(r.getOpcionElegida().getEsCorrecta())) {
-                aciertos++;
-            }
-        }
-        return aciertos;
-    }
-
-    @Transient
-    public int getPercentil() {
-        int score = getPuntuacionFinal();
-        switch (score) {
-            case 0: return 5;
-            case 1: return 10;
-            case 2: return 20;
-            case 3: return 35;
-            case 4: return 45;
-            case 5: return 60;
-            case 6: return 75;
-            case 7: return 85;
-            case 8: return 90;
-            case 9:
-            case 10: return 95;
-            case 11:
-            case 12: return 97;
-            default: return 99;
-        }
-    }
-
-    @Transient
-    public String getDiagnostico() {
-        int score = getPuntuacionFinal();
-        switch (score) {
-            case 0: return "Deficiente";
-            case 1:
-            case 2: return "Inferior";
-            case 3: return "Medio Bajo";
-            case 4: return "Medio";
-            case 5: return "Medio Alto";
-            case 6:
-            case 7: return "Superior";
-            case 8:
-            case 9:
-            case 10: return "Muy Superior";
-            default: return "Excelente";
-        }
-    }
-
     // ──────────────────────────────────────────────
     //  Métodos de conveniencia
     // ──────────────────────────────────────────────
-
-    /**
-     * Agrega una respuesta asociándola bidireccional con este candidato.
-     *
-     * @param respuesta la respuesta a agregar
-     */
-    public void agregarRespuesta(RespuestaCandidato respuesta) {
-        respuestas.add(respuesta);
-        respuesta.setCandidato(this);
-    }
 
     /**
      * Calcula la edad del candidato en años a partir de su fecha de nacimiento.

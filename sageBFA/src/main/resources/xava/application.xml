@@ -15,8 +15,8 @@
 
     <!-- ═══ Módulos visibles para el Psicólogo ═══ -->
     
-    <module name="ResultadoN2">
-        <model name="ResultadoN2"/>
+    <module name="ModuloPrueba">
+        <model name="ModuloPrueba"/>
         <controller name="Typical"/>
     </module>
 
@@ -25,18 +25,8 @@
         <controller name="Candidato"/>
     </module>
 
-    <module name="TestNumerico">
-        <model name="TestNumerico"/>
-        <controller name="Typical"/>
-    </module>
-
-    <module name="Pregunta">
-        <model name="Pregunta"/>
-        <controller name="Typical"/>
-    </module>
-
-    <module name="BaremoNacional">
-        <model name="BaremoNacional"/>
+    <module name="IntentoEvaluacion">
+        <model name="IntentoEvaluacion"/>
         <controller name="Typical"/>
     </module>
 

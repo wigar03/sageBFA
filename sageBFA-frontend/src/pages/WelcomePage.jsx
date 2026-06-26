@@ -66,22 +66,49 @@ export default function WelcomePage() {
     aceptoConsentimiento: false,
   });
 
-  const isCedulaValid = /^\d{3}-\d{6}-\d{4}[A-Z]$/.test(form.cedula);
+  const [touched, setTouched] = useState({
+    nombres: false,
+    apellidos: false,
+    correo: false,
+    cedula: false,
+    telefono: false,
+    fechaNacimiento: false,
+    edad: false,
+    sexo: false,
+    nivelEstudio: false,
+    departamento: false,
+    municipio: false,
+    tipoColegio: false,
+  });
+
+  const validations = {
+    nombres: form.nombres.trim().length >= 2 && /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(form.nombres.trim()),
+    apellidos: form.apellidos.trim().length >= 2 && /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(form.apellidos.trim()),
+    correo: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo.trim()),
+    cedula: /^\d{3}-\d{6}-\d{4}[A-Z]$/.test(form.cedula),
+    telefono: /^\d{4}-\d{4}$/.test(form.telefono),
+    fechaNacimiento: form.fechaNacimiento !== '',
+    edad: form.edad.toString().trim() !== '' && Number(form.edad) >= 6 && Number(form.edad) <= 100,
+    sexo: form.sexo !== '',
+    nivelEstudio: form.nivelEstudio !== '',
+    tipoColegio: form.tipoColegio !== '',
+    departamento: form.departamento !== '',
+    municipio: form.municipio !== '',
+  };
 
   const isFormValid =
-    form.nombres.trim() !== '' &&
-    form.apellidos.trim() !== '' &&
-    form.correo.trim() !== '' &&
-    form.sexo !== '' &&
-    form.nivelEstudio !== '' &&
-    form.fechaNacimiento !== '' &&
-    isCedulaValid &&
-    form.edad.toString().trim() !== '' &&
-    Number(form.edad) > 0 &&
-    form.telefono.trim() !== '' &&
-    form.departamento !== '' &&
-    form.municipio !== '' &&
-    form.tipoColegio !== '' &&
+    validations.nombres &&
+    validations.apellidos &&
+    validations.correo &&
+    validations.sexo &&
+    validations.nivelEstudio &&
+    validations.fechaNacimiento &&
+    validations.cedula &&
+    validations.edad &&
+    validations.telefono &&
+    validations.departamento &&
+    validations.municipio &&
+    validations.tipoColegio &&
     form.aceptoConsentimiento;
 
   function handleChange(e) {
@@ -92,12 +119,65 @@ export default function WelcomePage() {
     }));
   }
 
+  function handleBlur(e) {
+    const { name } = e.target;
+    setTouched((prev) => ({
+      ...prev,
+      [name]: true,
+    }));
+  }
+
   function handleDepartamentoChange(e) {
     const dep = e.target.value;
     setForm((prev) => ({
       ...prev,
       departamento: dep,
-      municipio: '', // Reiniciar municipio al cambiar departamento
+      municipio: '',
+    }));
+    setTouched((prev) => ({
+      ...prev,
+      departamento: true,
+      municipio: false,
+    }));
+  }
+
+  function handleFechaNacimientoChange(e) {
+    const fecha = e.target.value;
+    let edadCalculada = '';
+    if (fecha) {
+      const birthDate = new Date(fecha);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      edadCalculada = age >= 0 ? age.toString() : '';
+    }
+    setForm((prev) => ({
+      ...prev,
+      fechaNacimiento: fecha,
+      edad: edadCalculada,
+    }));
+    setTouched((prev) => ({
+      ...prev,
+      fechaNacimiento: true,
+      edad: true,
+    }));
+  }
+
+  function handleTelefonoChange(e) {
+    let raw = e.target.value.replace(/[^0-9]/g, '');
+    if (raw.length > 8) {
+      raw = raw.substring(0, 8);
+    }
+    let formatted = raw;
+    if (raw.length > 4) {
+      formatted = raw.substring(0, 4) + '-' + raw.substring(4);
+    }
+    setForm((prev) => ({
+      ...prev,
+      telefono: formatted,
     }));
   }
 
@@ -204,9 +284,15 @@ export default function WelcomePage() {
                 placeholder="Ej. María José"
                 value={form.nombres}
                 onChange={handleChange}
-                className={inputClass}
+                onBlur={handleBlur}
+                className={`${inputClass} ${touched.nombres && !validations.nombres ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                 required
               />
+              {touched.nombres && !validations.nombres && (
+                <p className="mt-1 text-xs text-red-500">
+                  El nombre debe contener al menos 2 letras y no incluir números ni caracteres especiales.
+                </p>
+              )}
             </div>
 
             {/* Apellidos */}
@@ -221,9 +307,15 @@ export default function WelcomePage() {
                 placeholder="Ej. García López"
                 value={form.apellidos}
                 onChange={handleChange}
-                className={inputClass}
+                onBlur={handleBlur}
+                className={`${inputClass} ${touched.apellidos && !validations.apellidos ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                 required
               />
+              {touched.apellidos && !validations.apellidos && (
+                <p className="mt-1 text-xs text-red-500">
+                  El apellido debe contener al menos 2 letras y no incluir números ni caracteres especiales.
+                </p>
+              )}
             </div>
 
             {/* Correo Electrónico */}
@@ -238,9 +330,15 @@ export default function WelcomePage() {
                 placeholder="correo@ejemplo.com"
                 value={form.correo}
                 onChange={handleChange}
-                className={inputClass}
+                onBlur={handleBlur}
+                className={`${inputClass} ${touched.correo && !validations.correo ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                 required
               />
+              {touched.correo && !validations.correo && (
+                <p className="mt-1 text-xs text-red-500">
+                  Ingresa un correo electrónico válido que contenga @ y un dominio (ej. correo@ejemplo.com).
+                </p>
+              )}
             </div>
 
             {/* Cédula y Teléfono — Fila de 2 columnas */}
@@ -256,10 +354,16 @@ export default function WelcomePage() {
                   placeholder="001-010190-0001A"
                   value={form.cedula}
                   onChange={handleCedulaChange}
-                  className={inputClass}
+                  onBlur={handleBlur}
+                  className={`${inputClass} ${touched.cedula && !validations.cedula ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                   maxLength={16}
                   required
                 />
+                {touched.cedula && !validations.cedula && (
+                  <p className="mt-1 text-xs text-red-500">
+                    El formato debe ser 000-000000-0000X.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -270,12 +374,18 @@ export default function WelcomePage() {
                   id="telefono"
                   name="telefono"
                   type="tel"
-                  placeholder="Ej. +505 8888-8888"
+                  placeholder="Ej. 8888-8888"
                   value={form.telefono}
-                  onChange={handleChange}
-                  className={inputClass}
+                  onChange={handleTelefonoChange}
+                  onBlur={handleBlur}
+                  className={`${inputClass} ${touched.telefono && !validations.telefono ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                   required
                 />
+                {touched.telefono && !validations.telefono && (
+                  <p className="mt-1 text-xs text-red-500">
+                    El teléfono debe tener exactamente 8 dígitos (ej. 8888-8888).
+                  </p>
+                )}
               </div>
             </div>
 
@@ -290,10 +400,16 @@ export default function WelcomePage() {
                   name="fechaNacimiento"
                   type="date"
                   value={form.fechaNacimiento}
-                  onChange={handleChange}
-                  className={inputClass}
+                  onChange={handleFechaNacimientoChange}
+                  onBlur={handleBlur}
+                  className={`${inputClass} ${touched.fechaNacimiento && !validations.fechaNacimiento ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                   required
                 />
+                {touched.fechaNacimiento && !validations.fechaNacimiento && (
+                  <p className="mt-1 text-xs text-red-500">
+                    Selecciona una fecha válida.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -309,9 +425,15 @@ export default function WelcomePage() {
                   placeholder="Ej. 18"
                   value={form.edad}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={handleBlur}
+                  className={`${inputClass} ${touched.edad && !validations.edad ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                   required
                 />
+                {touched.edad && !validations.edad && (
+                  <p className="mt-1 text-xs text-red-500">
+                    Debe ser entre 6 y 100 años.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -326,7 +448,8 @@ export default function WelcomePage() {
                   name="sexo"
                   value={form.sexo}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={handleBlur}
+                  className={`${inputClass} ${touched.sexo && !validations.sexo ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                   required
                 >
                   {SEXOS.map((s) => (
@@ -335,6 +458,11 @@ export default function WelcomePage() {
                     </option>
                   ))}
                 </select>
+                {touched.sexo && !validations.sexo && (
+                  <p className="mt-1 text-xs text-red-500">
+                    Selecciona tu sexo.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -346,7 +474,8 @@ export default function WelcomePage() {
                   name="nivelEstudio"
                   value={form.nivelEstudio}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={handleBlur}
+                  className={`${inputClass} ${touched.nivelEstudio && !validations.nivelEstudio ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                   required
                 >
                   {NIVELES_ESTUDIO.map((n) => (
@@ -355,6 +484,11 @@ export default function WelcomePage() {
                     </option>
                   ))}
                 </select>
+                {touched.nivelEstudio && !validations.nivelEstudio && (
+                  <p className="mt-1 text-xs text-red-500">
+                    Selecciona tu nivel de estudio.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -368,7 +502,8 @@ export default function WelcomePage() {
                 name="tipoColegio"
                 value={form.tipoColegio}
                 onChange={handleChange}
-                className={inputClass}
+                onBlur={handleBlur}
+                className={`${inputClass} ${touched.tipoColegio && !validations.tipoColegio ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                 required
               >
                 {TIPOS_COLEGIO.map((c) => (
@@ -377,6 +512,11 @@ export default function WelcomePage() {
                   </option>
                 ))}
               </select>
+              {touched.tipoColegio && !validations.tipoColegio && (
+                <p className="mt-1 text-xs text-red-500">
+                  Selecciona el tipo de colegio.
+                </p>
+              )}
             </div>
 
             {/* Departamento y Municipio — Fila de 2 columnas */}
@@ -390,7 +530,8 @@ export default function WelcomePage() {
                   name="departamento"
                   value={form.departamento}
                   onChange={handleDepartamentoChange}
-                  className={inputClass}
+                  onBlur={handleBlur}
+                  className={`${inputClass} ${touched.departamento && !validations.departamento ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                   required
                 >
                   <option value="" disabled>Selecciona departamento</option>
@@ -400,6 +541,11 @@ export default function WelcomePage() {
                     </option>
                   ))}
                 </select>
+                {touched.departamento && !validations.departamento && (
+                  <p className="mt-1 text-xs text-red-500">
+                    Selecciona tu departamento.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -411,7 +557,8 @@ export default function WelcomePage() {
                   name="municipio"
                   value={form.municipio}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={handleBlur}
+                  className={`${inputClass} ${touched.municipio && !validations.municipio ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                   disabled={!form.departamento}
                   required
                 >
@@ -422,6 +569,11 @@ export default function WelcomePage() {
                     </option>
                   ))}
                 </select>
+                {touched.municipio && !validations.municipio && (
+                  <p className="mt-1 text-xs text-red-500">
+                    Selecciona tu municipio.
+                  </p>
+                )}
               </div>
             </div>
 

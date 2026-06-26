@@ -26,13 +26,12 @@
     	<class>org.uam.sagebfa.sageBFA.model.UsuarioAdministrativo</class>
     	<class>org.uam.sagebfa.sageBFA.model.Psicologo</class>
     	<class>org.uam.sagebfa.sageBFA.model.Candidato</class>
-    	<class>org.uam.sagebfa.sageBFA.model.PruebaAptitud</class>
-    	<class>org.uam.sagebfa.sageBFA.model.TestNumerico</class>
+    	<class>org.uam.sagebfa.sageBFA.model.ModuloPrueba</class>
+    	<class>org.uam.sagebfa.sageBFA.model.IntentoEvaluacion</class>
     	<class>org.uam.sagebfa.sageBFA.model.Pregunta</class>
     	<class>org.uam.sagebfa.sageBFA.model.OpcionRespuesta</class>
     	<class>org.uam.sagebfa.sageBFA.model.RespuestaCandidato</class>
     	<class>org.uam.sagebfa.sageBFA.model.BaremoNacional</class>
-    	<class>org.uam.sagebfa.sageBFA.model.ResultadoN2</class>
         <properties>
 			<property name="javax.persistence.schema-generation.database.action" value="update"/>
 			<property name="hibernate.hbm2ddl.auto" value="update"/>
