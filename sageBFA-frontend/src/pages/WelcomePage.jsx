@@ -147,6 +147,8 @@ export default function WelcomePage() {
       aceptoConsentimientoInformado: form.aceptoConsentimiento,
     };
 
+    localStorage.removeItem('modulo_N2_completado');
+    localStorage.removeItem('respuestas_temporales_N2');
     localStorage.setItem('candidato_actual', JSON.stringify(candidato));
     navigate('/dashboard');
   }

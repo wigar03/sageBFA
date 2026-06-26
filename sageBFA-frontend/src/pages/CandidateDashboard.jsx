@@ -18,7 +18,7 @@ export default function CandidateDashboard() {
       id: 'N1',
       titulo: 'Aptitud Numérica (Sumas y Multiplicaciones) — N1',
       descripcion: 'Evalúa la agilidad mental y destreza en operaciones fundamentales de suma y multiplicación.',
-      tiempo: '10 minutos',
+      duracion: '8 minutos (4 min. por sección)',
       completado: false,
       bloqueado: true,
       color: 'bg-slate-400',
@@ -27,79 +27,61 @@ export default function CandidateDashboard() {
       id: 'N2',
       titulo: 'Aptitud Numérica (Operaciones y Problemas) — N2',
       descripcion: 'Mide la rapidez y precisión para realizar operaciones aritméticas sencillas y resolver problemas lógicos.',
-      tiempo: '12 minutos (6 min. por sección)',
+      duracion: '12 minutos (6 min. por sección)',
       completado: isN2Completado,
       bloqueado: false,
       color: 'bg-uam-celeste',
     },
     {
-      id: 'N3',
-      titulo: 'Aptitud Numérica (Restas y Divisiones) — N3',
-      descripcion: 'Evalúa la velocidad y precisión al realizar cálculos de resta y división en serie.',
-      tiempo: '10 minutos',
-      completado: false,
-      bloqueado: true,
-      color: 'bg-slate-400',
-    },
-    {
-      id: 'N4',
-      titulo: 'Aptitud Numérica (Razonamiento Matemático) — N4',
-      descripcion: 'Mide la capacidad de estructurar y formular ecuaciones matemáticas para resolver problemas complejos.',
-      tiempo: '15 minutos',
-      completado: false,
-      bloqueado: true,
-      color: 'bg-slate-400',
-    },
-    {
       id: 'CV',
-      titulo: 'Comprensión Verbal',
+      titulo: 'Comprensión Verbal — CV',
       descripcion: 'Mide la habilidad para asimilar y comprender textos complejos, proverbios y refranes.',
-      tiempo: '15 minutos',
-      completado: false,
-      bloqueado: true,
-      color: 'bg-slate-400',
-    },
-    {
-      id: 'FV',
-      titulo: 'Fluidez Verbal',
-      descripcion: 'Mide la velocidad de evocación verbal y capacidad asociativa de palabras que inician con una letra específica.',
-      tiempo: '5 minutos',
+      duracion: '15 minutos',
       completado: false,
       bloqueado: true,
       color: 'bg-slate-400',
     },
     {
       id: 'VOC1',
-      titulo: 'Vocabulario (Forma A)',
+      titulo: 'Vocabulario (Forma A) — VOC1',
       descripcion: 'Prueba de amplitud de vocabulario mediante la identificación de sinónimos para palabras de complejidad creciente.',
-      tiempo: '5 minutos',
+      duracion: '5 minutos',
       completado: false,
       bloqueado: true,
       color: 'bg-slate-400',
     },
     {
       id: 'VOC2',
-      titulo: 'Vocabulario (Forma B)',
-      descripcion: 'Prueba complementaria de vocabulario alternativo y equivalencias conceptuales léxicas.',
-      tiempo: '5 minutos',
+      titulo: 'Vocabulario (Forma B) — VOC2',
+      descripcion: 'Prueba complementaria para identificar la palabra con significado distinto dentro de un conjunto.',
+      duracion: '6 minutos',
+      completado: false,
+      bloqueado: true,
+      color: 'bg-slate-400',
+    },
+    {
+      id: 'FV',
+      titulo: 'Fluidez Verbal — FV',
+      descripcion: 'Mide la velocidad de evocación verbal y capacidad asociativa de palabras que inician con una letra específica.',
+      duracion: '5 minutos',
       completado: false,
       bloqueado: true,
       color: 'bg-slate-400',
     },
     {
       id: 'R1',
-      titulo: 'Razonamiento (Forma A)',
+      titulo: 'Razonamiento (Forma A) — R1',
       descripcion: 'Evalúa la capacidad de inducción y deducción lógica mediante la identificación de series numéricas.',
-      tiempo: '10 minutos',
+      duracion: '10 minutos',
       completado: false,
       bloqueado: true,
       color: 'bg-slate-400',
     },
     {
       id: 'R2',
-      titulo: 'Razonamiento (Forma B)',
+      titulo: 'Razonamiento (Forma B) — R2',
       descripcion: 'Mide el razonamiento abstracto analítico mediante relaciones y analogías gramaticales e inductivas.',
-      tiempo: '12 minutos',
+      duracion: '12 minutos',
       completado: false,
       bloqueado: true,
       color: 'bg-slate-400',
@@ -107,8 +89,8 @@ export default function CandidateDashboard() {
     {
       id: 'S1',
       titulo: 'Aptitud Espacial (Rapidez Perceptiva) — S1',
-      descripcion: 'Mide la velocidad de comparación visual de figuras y patrones en dos dimensiones.',
-      tiempo: '10 minutos',
+      descripcion: 'Mide la velocidad de comparación visual de figuras (Figuras Idénticas) y el análisis de volúmenes (Ladrillos).',
+      duracion: '6 min. y 30 seg. (2 secciones)',
       completado: false,
       bloqueado: true,
       color: 'bg-slate-400',
@@ -117,16 +99,7 @@ export default function CandidateDashboard() {
       id: 'S2',
       titulo: 'Aptitud Espacial (Visualización Espacial) — S2',
       descripcion: 'Evalúa la capacidad de manipulación y rotación mental de cuerpos tridimensionales en el espacio.',
-      tiempo: '12 minutos',
-      completado: false,
-      bloqueado: true,
-      color: 'bg-slate-400',
-    },
-    {
-      id: 'S3',
-      titulo: 'Aptitud Espacial (Orientación Espacial) — S3',
-      descripcion: 'Mide la habilidad de reconocer posiciones relativas y perspectivas de objetos en el espacio.',
-      tiempo: '10 minutos',
+      duracion: '5 minutos',
       completado: false,
       bloqueado: true,
       color: 'bg-slate-400',
@@ -237,7 +210,7 @@ export default function CandidateDashboard() {
                   <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Duración aproximada: {modulo.tiempo}
+                  Duración aproximada: {modulo.duracion}
                 </div>
               </div>
 
@@ -253,16 +226,19 @@ export default function CandidateDashboard() {
                 ) : modulo.bloqueado ? (
                   <button
                     disabled
-                    className="w-full rounded-xl bg-slate-100 py-3 text-sm font-bold uppercase tracking-wider text-slate-400 cursor-not-allowed border border-slate-200"
+                    className="w-full rounded-xl bg-slate-100 py-3 text-sm font-bold uppercase tracking-wider text-slate-400 cursor-not-allowed border border-slate-200 flex items-center justify-center gap-2"
                   >
-                    Próximamente
+                    <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    PRÓXIMAMENTE
                   </button>
                 ) : (
                   <button
                     onClick={() => navigate(`/test/${modulo.id}`)}
                     className="w-full rounded-xl bg-uam-celeste hover:bg-uam-celeste-dark py-3 text-sm font-bold uppercase tracking-wider text-white shadow transition active:scale-[0.98]"
                   >
-                    Iniciar Módulo
+                    INICIAR MÓDULO
                   </button>
                 )}
               </div>

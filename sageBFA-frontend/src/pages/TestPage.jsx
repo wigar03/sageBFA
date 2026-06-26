@@ -716,7 +716,47 @@ export default function TestPage() {
       </header>
 
       {/* ── Contenido: una pregunta a la vez ── */}
-      <main className="mx-auto max-w-2xl px-4 py-8">
+      <main className="mx-auto max-w-2xl px-4 py-8 mt-10 md:mt-12 flex flex-col gap-8">
+        {/* Tren de preguntas (Stepper) */}
+        {esTestActivo && (
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+            {preguntasSeccionActual.map((preg, idx) => {
+              const isActive = preguntaActualIndex === idx;
+              // Verificar si ya tiene respuesta registrada
+              const isAnswered = respuestasCandidato.some(r => r.preguntaId === preg.id && r.opcionElegidaId !== null);
+
+              let btnClass = "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors duration-200 shadow-sm ";
+              if (isActive) {
+                btnClass += fase === FASES.TEST_OPERACIONES 
+                  ? 'bg-uam-celeste text-white shadow-md ring-2 ring-uam-celeste ring-offset-2' 
+                  : 'bg-uam-naranja text-white shadow-md ring-2 ring-uam-naranja ring-offset-2';
+              } else if (isAnswered) {
+                btnClass += fase === FASES.TEST_OPERACIONES 
+                  ? 'border-2 border-uam-celeste text-uam-celeste bg-cyan-50 hover:bg-cyan-100' 
+                  : 'border-2 border-uam-naranja text-uam-naranja bg-orange-50 hover:bg-orange-100';
+              } else {
+                btnClass += fase === FASES.TEST_OPERACIONES 
+                  ? 'border-2 border-gray-300 text-gray-400 hover:border-uam-celeste hover:text-uam-celeste' 
+                  : 'border-2 border-gray-300 text-gray-400 hover:border-uam-naranja hover:text-uam-naranja';
+              }
+
+              return (
+                <button
+                  key={preg.id}
+                  type="button"
+                  onClick={() => {
+                    registrarRespuestaActual();
+                    setPreguntaActualIndex(idx);
+                  }}
+                  className={btnClass}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
           {preguntaActual && (
             <motion.div
@@ -729,7 +769,7 @@ export default function TestPage() {
               {/* Tarjeta de la pregunta */}
               <div className="rounded-2xl bg-white p-6 shadow-lg ring-1 ring-slate-900/5 sm:p-8">
                 {/* Encabezado */}
-                <div className="mb-6 flex items-start gap-4">
+                <div className="mb-6 flex items-center gap-4">
                   <span className={
                     'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white transition-colors duration-300 ' +
                     (fase === FASES.TEST_OPERACIONES ? 'bg-uam-celeste' : 'bg-uam-naranja')
