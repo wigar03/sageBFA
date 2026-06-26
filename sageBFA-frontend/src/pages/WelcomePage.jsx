@@ -106,7 +106,7 @@ export default function WelcomePage() {
     if (raw.length > 14) {
       raw = raw.substring(0, 14);
     }
-    
+
     let formatted = '';
     if (raw.length > 0) {
       formatted += raw.substring(0, Math.min(raw.length, 3));
@@ -120,7 +120,7 @@ export default function WelcomePage() {
     if (raw.length > 13) {
       formatted += raw.substring(13, 14);
     }
-    
+
     setForm((prev) => ({
       ...prev,
       cedula: formatted,

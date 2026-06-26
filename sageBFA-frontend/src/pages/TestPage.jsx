@@ -20,6 +20,56 @@ const FASES = {
 
 const FALLBACK_TIEMPO_MIN = 6;
 
+const ejemplosOperaciones = [
+  {
+    id: 1,
+    pregunta: "3 + \\Box = 8",
+    opciones: [
+      { label: "A) 3", correct: false },
+      { label: "B) 5", correct: true },
+      { label: "C) 6", correct: false },
+      { label: "D) 4", correct: false }
+    ],
+    correcta: "La respuesta correcta es 5 (Letra B)."
+  },
+  {
+    id: 2,
+    pregunta: "5 + \\Box = 1",
+    opciones: [
+      { label: "A) 3,7", correct: false },
+      { label: "B) 7,2", correct: false },
+      { label: "C) -4", correct: true },
+      { label: "D) 7,3", correct: false }
+    ],
+    correcta: "La respuesta correcta es -4 (Letra C)."
+  }
+];
+
+const ejemplosProblemas = [
+  {
+    id: 1,
+    pregunta: "Pedro tiene 28 cts., Juan tiene 31 cts. ¿Cuánto tienen entre los dos?",
+    opciones: [
+      { label: "A) 49", correct: false },
+      { label: "B) 59", correct: true },
+      { label: "C) 50", correct: false },
+      { label: "D) 60", correct: false }
+    ],
+    correcta: "La respuesta correcta es 59 (Letra B)."
+  },
+  {
+    id: 2,
+    pregunta: "Con 50 pesos compré un dulce de 15 pesos y un jugo de 20 pesos. ¿Cuánto me quedó de cambio?",
+    opciones: [
+      { label: "A) 15 pesos", correct: true },
+      { label: "B) 35 pesos", correct: false },
+      { label: "C) 25 pesos", correct: false },
+      { label: "D) 10 pesos", correct: false }
+    ],
+    correcta: "La respuesta correcta es 15 pesos (Letra A)."
+  }
+];
+
 // ─────────────────────────────────────────────
 // Componente auxiliar: detecta si un texto contiene LaTeX
 // y lo renderiza con KaTeX o como texto plano
@@ -48,6 +98,8 @@ export default function TestPage() {
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [respuestasCandidato, setRespuestasCandidato] = useState([]);
   const [seleccionActual, setSeleccionActual] = useState(null);
+  const [activeExampleOperaciones, setActiveExampleOperaciones] = useState(0);
+  const [activeExampleProblemas, setActiveExampleProblemas] = useState(0);
 
   // Estados de seguridad para pantalla completa (Fullscreen Police)
   const [isFullscreenViolated, setIsFullscreenViolated] = useState(false);
@@ -73,6 +125,7 @@ export default function TestPage() {
   // 1. Verificar candidato en localStorage
   // ─────────────────────────────────────────────
   useEffect(() => {
+    window.scrollTo(0, 0);
     const candidatoRaw = localStorage.getItem('candidato_actual');
     if (!candidatoRaw) {
       navigate('/', { replace: true });
@@ -528,19 +581,33 @@ export default function TestPage() {
               <p>Si no conoces la respuesta, puedes dejarla en blanco y avanzar a la siguiente pregunta. También puedes utilizar el botón <strong>"Anterior"</strong> para regresar y cambiar tus respuestas.</p>
             </div>
 
-            {/* Ejemplo con KaTeX */}
-            <div className="mb-6 rounded-xl border border-uam-celeste/20 bg-uam-celeste/5 p-5">
-              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-uam-celeste-dark">Ejemplo</p>
+            {/* Visor de ejemplos basado en Pestañas (Tabs) */}
+            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+              {/* Navegación (Tabs) */}
+              <div className="flex gap-4 mb-5 border-b border-slate-200 pb-2">
+                {ejemplosOperaciones.map((ex, idx) => (
+                  <button
+                    key={ex.id}
+                    type="button"
+                    onClick={() => setActiveExampleOperaciones(idx)}
+                    className={
+                      'pb-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 ' +
+                      (activeExampleOperaciones === idx
+                        ? 'text-uam-celeste border-b-2 border-uam-celeste'
+                        : 'text-slate-400 hover:text-slate-650')
+                    }
+                  >
+                    Ejemplo {idx + 1}
+                  </button>
+                ))}
+              </div>
+
+              {/* Contenido Dinámico */}
               <div className="mb-4 text-center">
-                <TeX block math={"3 + \\Box = 8"} />
+                <TeX block math={ejemplosOperaciones[activeExampleOperaciones].pregunta} />
               </div>
               <div className="flex justify-center gap-3">
-                {[
-                  { label: 'A) 3', correct: false },
-                  { label: 'B) 5', correct: true },
-                  { label: 'C) 6', correct: false },
-                  { label: 'D) 4', correct: false },
-                ].map((op, i) => (
+                {ejemplosOperaciones[activeExampleOperaciones].opciones.map((op, i) => (
                   <span
                     key={i}
                     className={
@@ -554,8 +621,8 @@ export default function TestPage() {
                   </span>
                 ))}
               </div>
-              <p className="mt-3 text-center text-sm text-green-700 font-medium">
-                ✓ La respuesta correcta es <strong>5</strong> (Letra B).
+              <p className="mt-4 text-center text-sm text-green-600 font-semibold">
+                ✓ {ejemplosOperaciones[activeExampleOperaciones].correcta}
               </p>
             </div>
 
@@ -604,19 +671,33 @@ export default function TestPage() {
               <p>Si no conoces la respuesta, puedes dejarla en blanco y avanzar a la siguiente pregunta. También puedes utilizar el botón <strong>"Anterior"</strong> para regresar y cambiar tus respuestas.</p>
             </div>
 
-            {/* Ejemplo */}
-            <div className="mb-6 rounded-xl border border-uam-naranja/20 bg-uam-naranja/5 p-5">
-              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-uam-naranja">Ejemplo</p>
-              <p className="mb-4 text-center text-sm font-medium text-slate-700 sm:text-base">
-                "Pedro tiene 28 cts., Juan tiene 31 cts. ¿Cuánto tienen entre los dos?"
+            {/* Visor de ejemplos basado en Pestañas (Tabs) */}
+            <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+              {/* Navegación (Tabs) */}
+              <div className="flex gap-4 mb-5 border-b border-slate-200 pb-2">
+                {ejemplosProblemas.map((ex, idx) => (
+                  <button
+                    key={ex.id}
+                    type="button"
+                    onClick={() => setActiveExampleProblemas(idx)}
+                    className={
+                      'pb-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 ' +
+                      (activeExampleProblemas === idx
+                        ? 'text-uam-naranja border-b-2 border-uam-naranja'
+                        : 'text-slate-400 hover:text-slate-650')
+                    }
+                  >
+                    Ejemplo {idx + 1}
+                  </button>
+                ))}
+              </div>
+
+              {/* Contenido Dinámico */}
+              <p className="mb-4 text-center text-sm font-medium text-slate-700 sm:text-base leading-relaxed">
+                "{ejemplosProblemas[activeExampleProblemas].pregunta}"
               </p>
               <div className="flex justify-center gap-3">
-                {[
-                  { label: 'A) 49', correct: false },
-                  { label: 'B) 59', correct: true },
-                  { label: 'C) 50', correct: false },
-                  { label: 'D) 60', correct: false },
-                ].map((op, i) => (
+                {ejemplosProblemas[activeExampleProblemas].opciones.map((op, i) => (
                   <span
                     key={i}
                     className={
@@ -630,8 +711,8 @@ export default function TestPage() {
                   </span>
                 ))}
               </div>
-              <p className="mt-3 text-center text-sm text-green-700 font-medium">
-                ✓ La respuesta correcta es <strong>59</strong> (Letra B).
+              <p className="mt-4 text-center text-sm text-green-600 font-semibold">
+                ✓ {ejemplosProblemas[activeExampleProblemas].correcta}
               </p>
             </div>
 

@@ -107,6 +107,7 @@ export default function CandidateDashboard() {
   ];
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     const candRaw = localStorage.getItem('candidato_actual');
     if (!candRaw) {
       navigate('/', { replace: true });
