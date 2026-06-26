@@ -37,3 +37,23 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+
+# Archivos compilados y empaquetados (Maven)
+target/
+*.class
+*.war
+*.jar
+
+# Archivos autogenerados de Tomcat / Jasper
+work/
+Catalina/
+
+# Configuraciones locales de IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# Archivos del sistema operativo (Mac/Windows)
+.DS_Store
+Thumbs.db
