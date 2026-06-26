@@ -67,4 +67,12 @@ public class RespuestaCandidato {
     public boolean esAcierto() {
         return opcionElegida != null && opcionElegida.getEsCorrecta();
     }
+
+    public void setIntentoEvaluacion(IntentoEvaluacion intento) {
+        this.intento = intento;
+    }
+
+    public IntentoEvaluacion getIntentoEvaluacion() {
+        return this.intento;
+    }
 }

@@ -34,14 +34,14 @@ const ejemplosOperaciones = [
   },
   {
     id: 2,
-    pregunta: "5 + \\Box = 1",
+    pregunta: "\\frac{5 + \\square}{7.7} = 1",
     opciones: [
       { label: "A) 3,7", correct: false },
       { label: "B) 7,2", correct: false },
-      { label: "C) -4", correct: true },
+      { label: "C) 2,7", correct: true },
       { label: "D) 7,3", correct: false }
     ],
-    correcta: "La respuesta correcta es -4 (Letra C)."
+    correcta: "La respuesta correcta es 2,7 (Letra C)."
   }
 ];
 
@@ -59,14 +59,14 @@ const ejemplosProblemas = [
   },
   {
     id: 2,
-    pregunta: "Con 50 pesos compré un dulce de 15 pesos y un jugo de 20 pesos. ¿Cuánto me quedó de cambio?",
+    pregunta: "68. Dar el resultado de la suma de 110 monedas de 5 ctvs.",
     opciones: [
-      { label: "A) 15 pesos", correct: true },
-      { label: "B) 35 pesos", correct: false },
-      { label: "C) 25 pesos", correct: false },
-      { label: "D) 10 pesos", correct: false }
+      { label: "A — 450 cts", correct: false },
+      { label: "B — 500 cts", correct: false },
+      { label: "C — 550 cts", correct: true },
+      { label: "D — 600 cts", correct: false }
     ],
-    correcta: "La respuesta correcta es 15 pesos (Letra A)."
+    correcta: "La respuesta correcta es 550 cts (Letra C)."
   }
 ];
 

@@ -72,23 +72,38 @@ public class EvaluacionService {
             } else {
                 candidato = em.merge(candidato);
                 
-                // Limpiar intentos anteriores de este módulo específico para evitar inconsistencias
+                // 1. Limpiar respuestas de intentos previos para evitar FK violations
+                em.createQuery("DELETE FROM RespuestaCandidato r WHERE r.intento.id IN (SELECT i.id FROM IntentoEvaluacion i WHERE i.candidato.id = :cId AND i.moduloPrueba.id = :modId)")
+                  .setParameter("cId", candidato.getId())
+                  .setParameter("modId", modulo.getId())
+                  .executeUpdate();
+
+                // 2. Limpiar intentos anteriores de este módulo específico
                 em.createQuery("DELETE FROM IntentoEvaluacion i WHERE i.candidato.id = :cId AND i.moduloPrueba.id = :modId")
                   .setParameter("cId", candidato.getId())
                   .setParameter("modId", modulo.getId())
                   .executeUpdate();
             }
+            em.flush();
+
+            // Buscar explícitamente Candidato y ModuloPrueba en la base de datos para adjuntarlos correctamente al IntentoEvaluacion
+            Candidato dbCandidato = em.find(Candidato.class, candidato.getId());
+            ModuloPrueba dbModulo = em.find(ModuloPrueba.class, modulo.getId());
 
             // B. Crear Intento de Evaluación
             IntentoEvaluacion intento = new IntentoEvaluacion();
-            intento.setCandidato(candidato);
-            intento.setModuloPrueba(modulo);
+            intento.setCandidato(dbCandidato);
+            intento.setModuloPrueba(dbModulo);
             intento.setFechaHora(new java.util.Date());
 
             // C. Procesar cada respuesta, calculando puntuación directa
             int aciertos = 0;
             if (request.getRespuestas() != null) {
                 for (RespuestaRequestDTO respDto : request.getRespuestas()) {
+                    if (respDto == null || respDto.getPreguntaId() == null || respDto.getPreguntaId() <= 0) {
+                        continue;
+                    }
+
                     Pregunta pregunta = em.find(Pregunta.class, respDto.getPreguntaId());
                     if (pregunta == null) {
                         continue;
@@ -104,6 +119,10 @@ public class EvaluacionService {
                     respuesta.setPregunta(pregunta);
                     respuesta.setOpcionElegida(opcion);
                     respuesta.setTiempoSegundos(respDto.getTiempoSegundos() != null ? respDto.getTiempoSegundos() : 0);
+                    
+                    // Asignar explícitamente la referencia al padre (IntentoEvaluacion)
+                    respuesta.setIntentoEvaluacion(intento);
+                    respuesta.setIntento(intento);
                     
                     // Asociar bidireccionalmente al intento (se guarda en cascada)
                     intento.agregarRespuesta(respuesta);
@@ -131,29 +150,33 @@ public class EvaluacionService {
                 baremoAplicado = baremos.get(0);
                 percentil = baremoAplicado.getPercentil();
             } else {
-                // Fallbacks para límites fuera de rango
-                if (aciertos > 16) {
-                    percentil = 99;
-                    TypedQuery<BaremoNacional> maxBaremoQuery = em.createQuery(
-                        "SELECT b FROM BaremoNacional b WHERE b.moduloPrueba.id = :modId ORDER BY b.percentil DESC", BaremoNacional.class
-                    );
-                    maxBaremoQuery.setParameter("modId", modulo.getId());
-                    maxBaremoQuery.setMaxResults(1);
-                    List<BaremoNacional> maxBaremos = maxBaremoQuery.getResultList();
-                    if (!maxBaremos.isEmpty()) {
-                        baremoAplicado = maxBaremos.get(0);
+                // Si no hay cruce exacto, buscamos el baremo más cercano para ese módulo
+                TypedQuery<BaremoNacional> todosBaremosQuery = em.createQuery(
+                    "SELECT b FROM BaremoNacional b WHERE b.moduloPrueba.id = :modId ORDER BY b.percentil ASC",
+                    BaremoNacional.class
+                );
+                todosBaremosQuery.setParameter("modId", modulo.getId());
+                List<BaremoNacional> todosBaremos = todosBaremosQuery.getResultList();
+
+                if (!todosBaremos.isEmpty()) {
+                    BaremoNacional masCercano = todosBaremos.get(0);
+                    int minDiferencia = Integer.MAX_VALUE;
+                    for (BaremoNacional b : todosBaremos) {
+                        int dif = 0;
+                        if (aciertos < b.getPuntuacionDirectaMinima()) {
+                            dif = b.getPuntuacionDirectaMinima() - aciertos;
+                        } else if (aciertos > b.getPuntuacionDirectaMaxima()) {
+                            dif = aciertos - b.getPuntuacionDirectaMaxima();
+                        }
+                        if (dif < minDiferencia) {
+                            minDiferencia = dif;
+                            masCercano = b;
+                        }
                     }
+                    baremoAplicado = masCercano;
+                    percentil = baremoAplicado.getPercentil();
                 } else {
-                    percentil = 1;
-                    TypedQuery<BaremoNacional> minBaremoQuery = em.createQuery(
-                        "SELECT b FROM BaremoNacional b WHERE b.moduloPrueba.id = :modId ORDER BY b.percentil ASC", BaremoNacional.class
-                    );
-                    minBaremoQuery.setParameter("modId", modulo.getId());
-                    minBaremoQuery.setMaxResults(1);
-                    List<BaremoNacional> minBaremos = minBaremoQuery.getResultList();
-                    if (!minBaremos.isEmpty()) {
-                        baremoAplicado = minBaremos.get(0);
-                    }
+                    percentil = 50; // Fallback absoluto
                 }
             }
 
@@ -163,20 +186,24 @@ public class EvaluacionService {
             intento.setBaremoAplicado(baremoAplicado);
 
             String diagnostico = "Medio";
-            if (aciertos <= 10) {
-                switch (aciertos) {
-                    case 0: diagnostico = "Deficiente"; break;
-                    case 1:
-                    case 2: diagnostico = "Inferior"; break;
-                    case 3: diagnostico = "Medio Bajo"; break;
-                    case 4: diagnostico = "Medio"; break;
-                    case 5: diagnostico = "Medio Alto"; break;
-                    case 6:
-                    case 7: diagnostico = "Superior"; break;
-                    default: diagnostico = "Muy Superior"; break;
+            if (percentil != null) {
+                if (percentil < 10) {
+                    diagnostico = "Deficiente";
+                } else if (percentil < 25) {
+                    diagnostico = "Inferior";
+                } else if (percentil < 40) {
+                    diagnostico = "Medio Bajo";
+                } else if (percentil < 60) {
+                    diagnostico = "Medio";
+                } else if (percentil < 75) {
+                    diagnostico = "Medio Alto";
+                } else if (percentil < 90) {
+                    diagnostico = "Superior";
+                } else if (percentil < 98) {
+                    diagnostico = "Muy Superior";
+                } else {
+                    diagnostico = "Excelente";
                 }
-            } else {
-                diagnostico = "Excelente";
             }
             intento.setDiagnostico(diagnostico);
 

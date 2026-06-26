@@ -32,34 +32,35 @@ public class TestNumericoServlet extends HttpServlet {
         if (menuCleaned) return;
         synchronized (TestNumericoServlet.class) {
             if (menuCleaned) return;
-            EntityManager em = XPersistence.getManager();
+            java.sql.Connection conn = null;
+            java.sql.Statement stmt = null;
             try {
-                em.getTransaction().begin();
+                javax.naming.InitialContext ctx = new javax.naming.InitialContext();
+                javax.sql.DataSource ds = (javax.sql.DataSource) ctx.lookup("java:comp/env/jdbc/sageBFADS");
+                conn = ds.getConnection();
+                conn.setAutoCommit(true);
+                stmt = conn.createStatement();
+
                 String[] joinTables = {"oxroles_modules", "oxmodules_roles", "oxroles_oxmodules", "oxmodules_oxroles"};
                 for (String table : joinTables) {
                     try {
-                        em.createNativeQuery("DELETE FROM " + table + " WHERE module_name IN ('Pregunta', 'BaremoNacional', 'Psicologo', 'UsuarioAdministrativo', 'OpcionRespuesta', 'RespuestaCandidato', 'Usuario')").executeUpdate();
+                        stmt.executeUpdate("DELETE FROM " + table + " WHERE module_name IN ('Pregunta', 'BaremoNacional', 'Psicologo', 'UsuarioAdministrativo', 'OpcionRespuesta', 'RespuestaCandidato', 'Usuario')");
                     } catch (Exception e) {
                         // Ignorar
                     }
                 }
                 try {
-                    em.createNativeQuery("DELETE FROM oxmodules WHERE name IN ('Pregunta', 'BaremoNacional', 'Psicologo', 'UsuarioAdministrativo', 'OpcionRespuesta', 'RespuestaCandidato', 'Usuario')").executeUpdate();
+                    stmt.executeUpdate("DELETE FROM oxmodules WHERE name IN ('Pregunta', 'BaremoNacional', 'Psicologo', 'UsuarioAdministrativo', 'OpcionRespuesta', 'RespuestaCandidato', 'Usuario')");
                 } catch (Exception e) {
                     // Ignorar
                 }
-                em.getTransaction().commit();
                 menuCleaned = true;
                 System.out.println("[NaviOX Cleanup] Módulos obsoletos limpiados con éxito de la base de datos.");
             } catch (Exception ex) {
-                try {
-                    if (em.getTransaction().isActive()) {
-                        em.getTransaction().rollback();
-                    }
-                } catch (Exception e) {
-                    // Ignorar
-                }
                 System.out.println("[NaviOX Cleanup] Advertencia durante la limpieza: " + ex.getMessage());
+            } finally {
+                if (stmt != null) { try { stmt.close(); } catch (Exception e) {} }
+                if (conn != null) { try { conn.close(); } catch (Exception e) {} }
             }
         }
     }
