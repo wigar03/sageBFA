@@ -58,8 +58,7 @@ public class IntentoEvaluacion {
     private java.util.Date fechaHora;
 
     /** Puntuación directa (PD): aciertos totales (o penalizados, según regla). */
-    @Column(nullable = false)
-    @Required
+    @Column
     private Integer puntuacionDirecta;
 
     /** Percentil calculado para este intento a partir del baremo nacional. */

@@ -19,6 +19,7 @@ import lombok.*;
 @Entity
 @Getter @Setter
 @Tab(properties = "intento.candidato.correo, intento.moduloPrueba.codigoModulo, pregunta.enunciado, opcionElegida.literal, tiempoSegundos")
+@View(members="pregunta, opcionElegida, tiempoSegundos")
 public class RespuestaCandidato {
 
     @Id
@@ -50,8 +51,7 @@ public class RespuestaCandidato {
     private OpcionRespuesta opcionElegida;
 
     /** Tiempo invertido por el candidato en esta pregunta (en segundos). */
-    @Column(nullable = false)
-    @Required
+    @Column
     private Integer tiempoSegundos;
 
     // ──────────────────────────────────────────────
@@ -72,6 +72,7 @@ public class RespuestaCandidato {
         this.intento = intento;
     }
 
+    @Hidden
     public IntentoEvaluacion getIntentoEvaluacion() {
         return this.intento;
     }
